@@ -93,7 +93,7 @@ def train(args):
         if validation_accuracy > best_val_accuracy:
             best_val_accuracy = validation_accuracy
             print(f'Saving model at epoch {epoch+1} with Validation Accuracy: {validation_accuracy}')
-            save_model(model, 'cnn.th')
+            save_model(model)
 
 
 if __name__ == '__main__':
