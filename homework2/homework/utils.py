@@ -40,7 +40,7 @@ class SuperTuxDataset(Dataset):
         return self.data[idx]
 
 
-def load_data(dataset_path, num_workers=0, batch_size=64):
+def load_data(dataset_path, num_workers=0, batch_size=128):
     dataset = SuperTuxDataset(dataset_path)
     return DataLoader(dataset, num_workers=num_workers, batch_size=batch_size, shuffle=True, drop_last=True)
 
