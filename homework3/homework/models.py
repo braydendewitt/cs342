@@ -1,6 +1,54 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.transforms as transforms
 
+class CNNResidualBlock(nn.Module):
+    # Residual block with two convolutions and a skip connection
+    def __init__(self, in_channels, out_channels, stride = 1):
+        
+        # Call parent
+        super(CNNResidualBlock, self).__init__()
+
+        # Initialize
+        self.stride = stride
+        adjusted_output_channels = out_channels // 2
+
+        # First conv. layer with batch normalization
+        self.conv1 = nn.Conv2d(in_channels, adjusted_output_channels, kernel_size = 3, stride = stride, padding = 1, bias = False)
+        self.bn1 = nn.BatchNorm2d(adjusted_output_channels)
+
+        # Second conv. layer with batch normalization
+        self.conv2 = nn.Conv2d(adjusted_output_channels, adjusted_output_channels, kernel_size = 3, stride = 1, padding = 1, bias = False)
+        self.bn2 = nn.BatchNorm2d(adjusted_output_channels)
+
+        # Skip connection and adjust output for sizing issues
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_channels != adjusted_output_channels:
+            # Fix sizing/output issues if necessary
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, adjusted_output_channels, kernel_size = 1, stride = stride, bias = False),
+                nn.BatchNorm2d(adjusted_output_channels)
+            )
+        # Update dimensions after using torch.cat
+        self.adjust_channels = nn.Sequential(
+            nn.Conv2d(out_channels, out_channels, kernel_size = 1, stride = 1, bias = False),
+            nn.BatchNorm2d(out_channels)
+        )
+    
+    def forward(self, x):
+        # Apply first conv., batch normalization, and ReLU
+        output = F.relu(self.bn1(self.conv1(x)))
+        # Apply second conv., batch normalization
+        output = self.bn2(self.conv2(output))
+        # Skip connection
+        shortcut = self.shortcut(x)
+        output = torch.cat((output, shortcut), dim = 1)
+        output = self.adjust_channels(output)
+        # ReLU new output
+        output = F.relu(output)
+        # Return final output
+        return output
 
 class CNNClassifier(torch.nn.Module):
     def __init__(self):
@@ -10,7 +58,30 @@ class CNNClassifier(torch.nn.Module):
         Hint: Base this on yours or HW2 master solution if you'd like.
         Hint: Overall model can be similar to HW2, but you likely need some architecture changes (e.g. ResNets)
         """
-        raise NotImplementedError('CNNClassifier.__init__')
+        
+        # Call parent
+        super(CNNClassifier, self).__init__()
+
+        # Normalization layer
+        self.normalize = transforms.Normalize(mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225])
+
+        # First convolution and batch norm. - before the residual blocks
+        self.conv1 = nn.Conv2d(in_channels = 3, out_channels = 64, kernel_size = 3, stride = 1, padding = 1)
+        self.bn1 = nn.BatchNorm2d(num_features = 64)
+
+        # Residual blocks - reduces spatial dimension as it moves along
+        self.block1 = CNNResidualBlock(64, 128, stride = 1)
+        self.block2 = CNNResidualBlock(128, 256, stride = 2)
+        self.block3 = CNNResidualBlock(256, 512, stride = 2)
+
+        # Dropout layer
+        self.dropout = nn.Dropout(0.5)
+
+        # Adaptive pooling
+        self.pool = nn.AdaptiveAvgPool2d((1,1))
+
+        # Classifier for the 6 classes
+        self.linear = nn.Linear(512, 6)
 
     def forward(self, x):
         """
@@ -19,9 +90,31 @@ class CNNClassifier(torch.nn.Module):
         @return: torch.Tensor((B,6))
         Hint: Apply input normalization inside the network, to make sure it is applied in the grader
         """
-        raise NotImplementedError('CNNClassifier.forward')
-    
-    ## TESTING UPLOAD ####
+        
+        # Normalize inputs
+        x = self.normalize(x)
+
+        # First convolution and layer
+        x = F.relu(self.bn1(self.conv1(x)))
+
+        # Residual blocks
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.block3(x)
+
+        # Pool and flatten
+        x = self.pool(x)
+        x = x.view(x.size(0), -1)
+
+        # Dropout
+        x = self.dropout(x)
+
+        # Classification
+        x = self.linear(x)
+
+        # Output
+        return x
+
 
 
 class FCN(torch.nn.Module):
