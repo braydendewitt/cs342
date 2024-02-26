@@ -44,6 +44,12 @@ def train(args):
     # Initialize global step (for tb logging)
     global_step = 0
 
+    # Check if augmenting data
+    if args.augment_data:
+        print('Augment data = True')
+    else:
+        print('Augment data = False')
+
     # Training loop
     for epoch in range(args.epochs):
         # Set model to train
@@ -52,7 +58,6 @@ def train(args):
         for inputs, labels in training_data:
             # Augment data and send to device
             if args.augment_data:
-                print('Augment data = True')
                 inputs_augmented = tensor_transformations(inputs)
             else:
                 inputs_augmented = inputs
