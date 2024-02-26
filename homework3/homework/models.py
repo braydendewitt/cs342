@@ -20,6 +20,8 @@ class CNNClassifier(torch.nn.Module):
         Hint: Apply input normalization inside the network, to make sure it is applied in the grader
         """
         raise NotImplementedError('CNNClassifier.forward')
+    
+    ## TESTING UPLOAD ####
 
 
 class FCN(torch.nn.Module):
