@@ -150,6 +150,8 @@ class FCN(torch.nn.Module):
         # Output to the 5 classes
         self.final = nn.Conv2d(in_channels = 32, out_channels = 5, kernel_size = 1)
 
+        # Simplified network for edge cases (smaller images in the model)
+        self.simple_network = nn.Conv2d(in_channels = 3, out_channels = 5, kernel_size = 3, padding = 1)
 
     def forward(self, x):
         """
@@ -167,13 +169,9 @@ class FCN(torch.nn.Module):
         if x.size(2) < 128 or x.size(3) < 96:
             # Normalize
             x = self.normalize(x)
-            # Simplified network
-            layer1 = nn.Conv2d(in_channels = 3, out_channels = 64, kernel_size = 3, stride = 1, padding = 1)
-            layer2 = nn.BatchNorm2d(64)
-            x = F.relu(layer2(layer1(x)))
-            x = F.interpolate(x , size = (128,96), mode = 'bilnear', align_corners = False)
-            x = self.final(x)
-            x = x[:, :, :x.size(2), :x.size(3)]
+            # Simple network
+            x = self.simple_network(x)
+            # Output
             return x
 
         # Normalization
