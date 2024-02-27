@@ -158,26 +158,37 @@ class FCN(torch.nn.Module):
               if required (use z = z[:, :, :H, :W], where H and W are the height and width of a corresponding strided
               convolution
         """
-        
+        print(f"Input: {x.shape}")
+
         # Normalization
         x = self.normalize(x)
+        print(f"Normalized: {x.shape}")  
 
         # Encoder
         d1 = self.down1(x)
+        print(f"D1: {d1.shape}")
         d2 = self.down2(d1)
+        print(f"D2: {d2.shape}")
 
         # Bridge to decoder
         bridge = self.bridge(d2)
+        print(f"Bridge: {bridge.shape}")
 
         # Decoder
         u1 = self.up1(bridge)
+        print(f"U1: {u1.shape}")
         u1 = torch.cat((u1, d1[:, :, :u1.size(2), :u1.size(3)]), dim = 1) # Skip connection and also crop
+        print(f"U1 after skip: {u1.shape}")
         u2 = self.up2(u1)
+        print(f"U2: {u2.shape}")
         u2 = torch.cat((u2, x[:, :, :u2.size(2), :u2.size(3)]), dim = 1) # Skip connection and also crop
+        print(f"U2 after skip: {u2.shape}")
 
         # Output
         output = self.final(u2)
+        print(f"Output before crop: {output.shape}")
         output = output[:, :, :x.size(2), :x.size(3)] # Crop
+        print(f"Output after crop: {output.shape}")
         return output
 
 
