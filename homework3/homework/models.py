@@ -163,17 +163,19 @@ class FCN(torch.nn.Module):
               if required (use z = z[:, :, :H, :W], where H and W are the height and width of a corresponding strided
               convolution
         """
-        print(f"Input: {x.shape}")
 
-        # EDGE CASES (images smaller than the dataset)
+        # EDGE CASES (images smaller than the dataset) - padding required
+        original_image_size = (x.size(2), x.size(3))
+        print(f"ORIGINAL SIZE: {x.shape}")
+
         if x.size(2) < 128 or x.size(3) < 96:
-            # Normalize
-            x = self.normalize(x)
-            # Simple network
-            x = self.simple_network(x)
-            # Output
-            return x
+            print("SMALL IMAGE")
+            pad_height = max(0, 128 - x.size(2))
+            pad_width = max(0, 96-x.size(3))
+            x = F.pad(x, (pad_width // 2, pad_width - pad_width // 2, pad_height // 2, pad_height - pad_height // 2), model = 'reflect')
+            print(f"PADDED INPUT: {x.shape}")
 
+        
         # Normalization
         x = self.normalize(x)
         print(f"Normalized: {x.shape}")  
@@ -207,7 +209,8 @@ class FCN(torch.nn.Module):
         output = self.final(u2)
         print(f"Output before crop: {output.shape}")
         output = output[:, :, :x.size(2), :x.size(3)] # Crop
-        print(f"Output after crop: {output.shape}")
+        print(f"OUTPUT - after crop: {output.shape}")
+        print(f"\n")
         return output
 
 
