@@ -171,9 +171,9 @@ class FCN(torch.nn.Module):
 
         # Decoder
         u1 = self.up1(bridge)
-        u1 = torch.cat((u1, d1[:, :, :u1.size(2), :u1.size(3)]), dim = 1) # Skip connection and also crop
+        #u1 = torch.cat((u1, d1[:, :, :u1.size(2), :u1.size(3)]), dim = 1) # Skip connection and also crop
         u2 = self.up2(u1)
-        u2 = torch.cat((u2, x[:, :, :u2.size(2), :u2.size(3)]), dim = 1) # Skip connection and also crop
+        #u2 = torch.cat((u2, x[:, :, :u2.size(2), :u2.size(3)]), dim = 1) # Skip connection and also crop
 
         # Output
         output = self.final(u2)
