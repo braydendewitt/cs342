@@ -37,7 +37,7 @@ def train(args):
 
     # Load in data
     training_data = load_dense_data('dense_data/train')
-    validation_data = load_dense_data('dense_data/valid', transorm = dense_transforms.Compose([
+    validation_data = load_dense_data('dense_data/valid', transform = dense_transforms.Compose([
         dense_transforms.ToTensor(),
     ]))
 
