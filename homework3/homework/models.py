@@ -172,7 +172,7 @@ class FCN(torch.nn.Module):
             print("SMALL IMAGE")
             pad_height = max(0, 128 - x.size(2))
             pad_width = max(0, 96-x.size(3))
-            x = F.pad(x, (pad_width // 2, pad_width - pad_width // 2, pad_height // 2, pad_height - pad_height // 2), model = 'reflect')
+            x = F.pad(x, (pad_width // 2, pad_width - pad_width // 2, pad_height // 2, pad_height - pad_height // 2), mode = 'reflect')
             print(f"PADDED INPUT: {x.shape}")
 
         
