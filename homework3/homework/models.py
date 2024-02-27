@@ -163,6 +163,17 @@ class FCN(torch.nn.Module):
         """
         print(f"Input: {x.shape}")
 
+        # EDGE CASES (images smaller than the dataset)
+        if x.size(2) < 128 or x.size(3) < 96:
+            # Normalize
+            x = self.normalize(x)
+            # Simplified network
+            x = F.relu(nn.Conv2d(in_channels = 3, out_channels = 64, kernel_size = 3, stride = 1, padding = 1))
+            x = F.interpolate(x , size = (128,96), mode = 'bilnear', align_corners = False)
+            x = self.final(x)
+            x = x[:, :, :x.size(2), :x.size(3)]
+            return x
+
         # Normalization
         x = self.normalize(x)
         print(f"Normalized: {x.shape}")  
