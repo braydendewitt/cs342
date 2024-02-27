@@ -70,10 +70,10 @@ def train(args):
         for inputs, labels in training_data:
 
             # Augment inputs
-            inputs_augmented = augmentations(inputs)
+            inputs_augmented, labels_augmented = augmentations(inputs, labels)
 
             # Send to device
-            inputs_augmented, labels = inputs_augmented.to(device), labels.to(device)
+            inputs_augmented, labels_augmented = inputs_augmented.to(device), labels_augmented.to(device)
 
             # Zero gradient
             optimizer.zero_grad()
@@ -82,7 +82,7 @@ def train(args):
             outputs = model(inputs_augmented)
 
             # Calculate loss
-            loss = loss_function(outputs, labels.long())
+            loss = loss_function(outputs, labels_augmented.long())
 
             # Backward pass
             loss.backward()
