@@ -119,7 +119,6 @@ class CNNClassifier(torch.nn.Module):
 
 class FCN(torch.nn.Module):
     def __init__(self):
-        super().__init__()
         """
         Your code here.
         Hint: The FCN can be a bit smaller the the CNNClassifier since you need to run it at a higher resolution
@@ -128,7 +127,26 @@ class FCN(torch.nn.Module):
         Hint: Use residual connections
         Hint: Always pad by kernel_size / 2, use an odd kernel_size
         """
-        raise NotImplementedError('FCN.__init__')
+        
+        # Call super
+        super(FCN, self).__init__()
+
+        # Input normalization layer
+        self.normalize = transforms.Normalize(mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225])
+
+        # Encoder layers
+        self.down1 = CNNResidualBlock(in_channels = 3, out_channels = 64, stride = 2)
+        self.down2 = CNNResidualBlock(in_channels = 64, out_channels = 128, stride = 2)
+
+        # Bridge between encoder and decoder layers
+        self.bridge = CNNResidualBlock(in_channels = 128, out_channels = 128, stride = 1)
+
+        # Decoder layers
+        self.up1 = nn.ConvTranspose2d(in_channels = 128, out_channels = 64, kernel_size = 2, stride = 2, padding = 0, output_padding = 0)
+        self.up2 = nn.ConvTranspose2d(in_channels = 64, out_channels = 32, kernel_size = 2, stride = 2, padding = 0, output_padding = 0)
+
+        # Output to the 5 classes
+        self.final = nn.Conv2d(in_channels = 32, out_channels = 5, kernel_size = 1)
 
     def forward(self, x):
         """
@@ -140,7 +158,27 @@ class FCN(torch.nn.Module):
               if required (use z = z[:, :, :H, :W], where H and W are the height and width of a corresponding strided
               convolution
         """
-        raise NotImplementedError('FCN.forward')
+        
+        # Normalization
+        x = self.normalize(x)
+
+        # Encoder
+        d1 = self.down1(x)
+        d2 = self.down2(d1)
+
+        # Bridge to decoder
+        bridge = self.bridge(d2)
+
+        # Decoder
+        u1 = self.up1(bridge)
+        u1 = torch.cat((u1, d1[:, :, :u1.size(2), :u1.size(3)]), dim = 1) # Skip connection and also crop
+        u2 = self.up2(u1)
+        u2 = torch.cat((u2, x[:, :, :u2.size(2), :u2.size(3)]), dim = 1) # Skip connection and also crop
+
+        # Output
+        output = self.final(u2)
+        output = output[:, :, :x.size(2), :x.size(3)] # Crop
+        return output
 
 
 model_factory = {
