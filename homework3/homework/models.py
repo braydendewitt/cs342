@@ -168,7 +168,9 @@ class FCN(torch.nn.Module):
             # Normalize
             x = self.normalize(x)
             # Simplified network
-            x = F.relu(nn.Conv2d(in_channels = 3, out_channels = 64, kernel_size = 3, stride = 1, padding = 1))
+            layer1 = nn.Conv2d(in_channels = 3, out_channels = 64, kernel_size = 3, stride = 1, padding = 1)
+            layer2 = nn.BatchNorm2d(64)
+            x = F.relu(layer2(layer1(x)))
             x = F.interpolate(x , size = (128,96), mode = 'bilnear', align_corners = False)
             x = self.final(x)
             x = x[:, :, :x.size(2), :x.size(3)]
