@@ -142,8 +142,8 @@ class FCN(torch.nn.Module):
         self.bridge = CNNResidualBlock(in_channels = 128, out_channels = 128, stride = 1)
 
         # Decoder layers
-        self.up1 = nn.ConvTranspose2d(in_channels = 128, out_channels = 64, kernel_size = 2, stride = 2, padding = 0, output_padding = 0)
-        self.up2 = nn.ConvTranspose2d(in_channels = 64, out_channels = 32, kernel_size = 2, stride = 2, padding = 0, output_padding = 0)
+        self.up1 = nn.ConvTranspose2d(in_channels = 128, out_channels = 64, kernel_size = 2, stride = 2, padding = 1, output_padding = 1)
+        self.up2 = nn.ConvTranspose2d(in_channels = 64, out_channels = 32, kernel_size = 2, stride = 2, padding = 1, output_padding = 1)
 
         # Output to the 5 classes
         self.final = nn.Conv2d(in_channels = 32, out_channels = 5, kernel_size = 1)
