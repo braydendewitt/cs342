@@ -172,7 +172,11 @@ class FCN(torch.nn.Module):
             print("SMALL IMAGE")
             pad_height = max(0, 128 - x.size(2))
             pad_width = max(0, 96-x.size(3))
-            x = F.pad(x, (pad_width // 2, pad_width - pad_width // 2, pad_height // 2, pad_height - pad_height // 2), mode = 'reflect')
+            pad_top = pad_height // 2
+            pad_bottom = pad_height - pad_top
+            pad_left = pad_width // 2
+            pad_right = pad_width - pad_left
+            x = F.pad(x, (pad_left, pad_right, pad_top, pad_bottom), mode = 'constant', value = 0)
             print(f"PADDED INPUT: {x.shape}")
 
         
@@ -208,7 +212,7 @@ class FCN(torch.nn.Module):
         # Output
         output = self.final(u2)
         print(f"Output before crop: {output.shape}")
-        output = output[:, :, :x.size(2), :x.size(3)] # Crop
+        output = output[:, :, :original_image_size[0], :original_image_size[1]] # Crop
         print(f"OUTPUT - after crop: {output.shape}")
         print(f"\n")
         return output
