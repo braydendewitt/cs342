@@ -164,11 +164,11 @@ class FCN(torch.nn.Module):
 
         # Get original image size
         original_image_size = (x.size(2), x.size(3))
-        print(f"ORIGINAL SIZE: {x.shape}")
+        #print(f"ORIGINAL SIZE: {x.shape}")
 
         # Determine if padding is necessary
         if x.size(2) < 128 or x.size(3) < 96:
-            print("SMALL IMAGE")
+            #print("SMALL IMAGE")
             # Get pad height and width required
             pad_height = max(0, 128 - x.size(2))
             pad_width = max(0, 96-x.size(3))
@@ -179,44 +179,44 @@ class FCN(torch.nn.Module):
             pad_right = pad_width - pad_left
             # Pad image
             x = F.pad(x, (pad_left, pad_right, pad_top, pad_bottom), mode = 'constant', value = 0)
-            print(f"PADDED INPUT: {x.shape}")
+            #print(f"PADDED INPUT: {x.shape}")
 
         
         # Normalization
         x = self.normalize(x)
-        print(f"Normalized: {x.shape}")  
+        #print(f"Normalized: {x.shape}")  
 
         # Encoder
         d1 = self.down1(x)
-        print(f"D1: {d1.shape}")
+        #print(f"D1: {d1.shape}")
         d2 = self.down2(d1)
-        print(f"D2: {d2.shape}")
+        #print(f"D2: {d2.shape}")
 
         # Bridge to decoder
         bridge = self.bridge(d2)
-        print(f"Bridge: {bridge.shape}")
+        #print(f"Bridge: {bridge.shape}")
 
         # Decoder
         u1 = self.up1(bridge)
-        print(f"U1: {u1.shape}")
+        #print(f"U1: {u1.shape}")
         u1 = torch.cat((u1, d1[:, :, :u1.size(2), :u1.size(3)]), dim = 1) # Skip connection, ensure dimensions
-        print(f"U1 after torch.cat: {u1.shape}")
+        #print(f"U1 after torch.cat: {u1.shape}")
         u1 = self.adjust_up1_channels(u1) # Adjust dimensions after torch.cat
-        print(f"U1 after adjust: {u1.shape}")
+        #print(f"U1 after adjust: {u1.shape}")
 
         u2 = self.up2(u1)
-        print(f"U2: {u2.shape}")
+        #print(f"U2: {u2.shape}")
         u2 = torch.cat((u2, x[:, :, :u2.size(2), :u2.size(3)]), dim = 1) # Skip connection, ensure dimensions
-        print(f"U2 after torch.cat: {u2.shape}")
+        #print(f"U2 after torch.cat: {u2.shape}")
         u2 = self.adjust_up2_channels(u2) # Adjust dimensions after torch.cat
-        print(f"U2 after adjust: {u2.shape}")
+        #print(f"U2 after adjust: {u2.shape}")
 
         # Output
         output = self.final(u2)
-        print(f"Output before crop: {output.shape}")
+        #print(f"Output before crop: {output.shape}")
         output = output[:, :, :original_image_size[0], :original_image_size[1]] # Crop output to original image
-        print(f"OUTPUT - after crop: {output.shape}")
-        print(f"\n")
+        #print(f"OUTPUT - after crop: {output.shape}")
+        #print(f"\n")
         return output
 
 
