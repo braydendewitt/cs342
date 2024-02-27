@@ -36,8 +36,8 @@ def train(args):
     print(f'Device: {args.device}')
 
     # Load in data
-    training_data = load_dense_data('data/train')
-    validation_data = load_dense_data('data/valid', transorm = dense_transforms.Compose([
+    training_data = load_dense_data('dense_data/train')
+    validation_data = load_dense_data('dense_data/valid', transorm = dense_transforms.Compose([
         dense_transforms.ToTensor(),
     ]))
 
