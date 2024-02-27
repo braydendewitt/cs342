@@ -142,9 +142,9 @@ class FCN(torch.nn.Module):
         self.bridge = CNNResidualBlock(in_channels = 128, out_channels = 128, stride = 1)
 
         # Decoder layers with spatial dimension adjustments
-        self.up1 = nn.ConvTranspose2d(in_channels = 128, out_channels = 64, kernel_size = 3, stride = 2, padding = 0, output_padding = 1)
+        self.up1 = nn.ConvTranspose2d(in_channels = 128, out_channels = 64, kernel_size = 3, stride = 2, padding = 1, output_padding = 1)
         self.adjust_up1_channels = nn.Conv2d(128, 64, kernel_size = 1) # Adjustment layer for after skip connection (adding d1 to u1)
-        self.up2 = nn.ConvTranspose2d(in_channels = 64, out_channels = 32, kernel_size = 3, stride = 2, padding = 0, output_padding = 1)
+        self.up2 = nn.ConvTranspose2d(in_channels = 64, out_channels = 32, kernel_size = 3, stride = 2, padding = 1, output_padding = 1)
         self.adjust_up2_channels = nn.Conv2d(35, 32, kernel_size = 1) # Adjustment layer for after skip connection (adding x to u2)
 
         # Output to the 5 classes
@@ -180,14 +180,14 @@ class FCN(torch.nn.Module):
         # Decoder
         u1 = self.up1(bridge)
         print(f"U1: {u1.shape}")
-        u1 = torch.cat((u1, d1[:, :, :x.size(2), :x.size(3)]), dim = 1) # Skip connection and also crop
+        u1 = torch.cat((u1, d1[:, :, :u1.size(2), :u1.size(3)]), dim = 1) # Skip connection and also crop
         print(f"U1 after torch.cat: {u1.shape}")
         u1 = self.adjust_up1_channels(u1)
         print(f"U1 after adjust: {u1.shape}")
 
         u2 = self.up2(u1)
         print(f"U2: {u2.shape}")
-        u2 = torch.cat((u2, x[:, :, :x.size(2), :x.size(3)]), dim = 1) # Skip connection and also crop
+        u2 = torch.cat((u2, x[:, :, :u2.size(2), :u2.size(3)]), dim = 1) # Skip connection and also crop
         print(f"U2 after torch.cat: {u2.shape}")
         u2 = self.adjust_up2_channels(u2)
         print(f"U2 after adjust: {u2.shape}")
