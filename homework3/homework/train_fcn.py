@@ -19,10 +19,8 @@ def adjust_class_weights(per_class_accuracy, base_weights):
 
 def calculate_per_class_accuracy(confusion_matrix):
     # Calculate class accuracy
-    correct_in_class = confusion_matrix.diag()
-    total_in_class = confusion_matrix.sum()
-    per_class_accuracy = correct_in_class / total_in_class
-    return per_class_accuracy.nan_to_num(0)
+    per_class_accuracy = confusion_matrix.class_accuracy
+    return per_class_accuracy
 
 def train(args):
 
@@ -152,7 +150,7 @@ def train(args):
         per_class_accuracy = calculate_per_class_accuracy(confusion_matrix)
         adjusted_weights = adjust_class_weights(per_class_accuracy, base_weights)
         loss_function = torch.nn.CrossEntropyLoss(weight = adjusted_weights.to(device))
-        print(f'Epoch: {epoch+1}, Adjusted Weights: {adjusted_weights}, Per-Class Accuracy: {per_class_accuracy}')
+        print(f'Epoch: {epoch+1}, Adjusted Weights: {adjusted_weights}, Per-Class Accuracy: {per_class_accuracy}, Per-Class IoU: {confusion_matrix.class_iou}')
         
         # Check if current IoU is best so far
         if validation_iou > best_val_iou:
