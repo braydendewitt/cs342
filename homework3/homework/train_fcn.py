@@ -9,6 +9,21 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 
+def adjust_class_weights(per_class_accuracy, base_weights):
+    # Adjust class weights based on their accuracy
+    # Calculate inverse accuracy
+    inverse_accuracy = 1.0 - per_class_accuracy
+    # Normalize weights
+    normalized_weights = (inverse_accuracy / inverse_accuracy.sum()) * base_weights.sum()
+    return normalized_weights
+
+def calculate_per_class_accuracy(confusion_matrix):
+    # Calculate class accuracy
+    correct_in_class = confusion_matrix.diag()
+    total_in_class = confusion_matrix.sum()
+    per_class_accuracy = correct_in_class / total_in_class
+    return per_class_accuracy.nan_to_num(0)
+
 def train(args):
 
     """
@@ -28,8 +43,8 @@ def train(args):
     model = FCN().to(device)
     
     # Create loss function and use dense_class_distribution
-    class_weights = torch.tensor([1.0 / i for i in DENSE_CLASS_DISTRIBUTION], dtype = torch.float32).to(device)
-    loss_function = torch.nn.CrossEntropyLoss(weight = class_weights)
+    base_weights = torch.tensor([1.0 / i for i in DENSE_CLASS_DISTRIBUTION], dtype = torch.float32).to(device)
+    loss_function = torch.nn.CrossEntropyLoss(weight = base_weights)
 
     # Create optimizer, use model parameters and learning rate
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
@@ -132,6 +147,12 @@ def train(args):
         print(f'Epoch {epoch+1}/{args.epochs}, Training Loss: {loss.item()}, '
               f'Validation Loss: {validation_loss}, Validation Accuracy: {validation_accuracy}, '
               f'Validation IoU: {validation_iou}')
+
+        # Calculate per-class stats
+        per_class_accuracy = calculate_per_class_accuracy(confusion_matrix)
+        adjusted_weights = adjust_class_weights(per_class_accuracy, base_weights)
+        loss_function = torch.nn.CrossEntropyLoss(weight = adjusted_weights.to(device))
+        print(f'Epoch: {epoch+1}, Adjusted Weights: {adjusted_weights}, Per-Class Accuracy: {per_class_accuracy}')
         
         # Check if current IoU is best so far
         if validation_iou > best_val_iou:
