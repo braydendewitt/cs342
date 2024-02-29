@@ -33,7 +33,7 @@ def train(args):
 
     # Create optimizer, use model parameters and learning rate
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
-    scheduler = StepLR(optimizer, step_size = 10, gamma = 0.1) #### ADDED StepLR ###
+    #scheduler = StepLR(optimizer, step_size = 10, gamma = 0.1) #### ADDED StepLR ###
     print(f'Learning rate: {args.lr}')
     print(f'Device: {args.device}')
 
@@ -141,7 +141,7 @@ def train(args):
             save_model(model)
         
         # Update scheduler at end of epoch
-        scheduler.step()
+        #scheduler.step()
 
 
 
