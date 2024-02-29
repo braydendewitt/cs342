@@ -17,7 +17,7 @@ def train(args):
     loss_function = torch.nn.CrossEntropyLoss()
 
     # Create optimizer, use model parameters and learning rate
-    optimizer = optim.SGD(model.parameters(), lr = args.lr)
+    optimizer = optim.SGD(model.parameters(), lr = args.lr, weight_decay = 1e-3)
     print(f'Learning rate: {args.lr}')
     print(f'Device: {args.device}')
 
