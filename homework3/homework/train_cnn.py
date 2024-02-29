@@ -28,8 +28,9 @@ def train(args):
     # Initialize data augementations
     tensor_transformations = transforms.Compose([
         transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(brightness = 0.5, contrast = 0.5, saturation = 0.5),
+        transforms.ColorJitter(brightness = 0.5, contrast = 0.5, saturation = 0.5, hue = 0.5),
         transforms.RandomRotation(10, fill = (0,)),
+        transforms.RandomPerspective(),
     ])
 
     # Initialize loggers for tensorboard
