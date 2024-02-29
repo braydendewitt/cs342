@@ -17,7 +17,9 @@ def train(args):
     loss_function = torch.nn.CrossEntropyLoss()
 
     # Create optimizer, use model parameters and learning rate
-    optimizer = optim.SGD(model.parameters(), lr = args.lr, weight_decay = 1e-3)
+    #optimizer = optim.SGD(model.parameters(), lr = args.lr, weight_decay = 1e-3)
+    optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = 1e-4)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size = 10, gamma = 0.25)
     print(f'Learning rate: {args.lr}')
     print(f'Device: {args.device}')
 
@@ -106,6 +108,9 @@ def train(args):
             best_val_accuracy = validation_accuracy
             print(f'Saving model at epoch {epoch+1} with Validation Accuracy: {validation_accuracy}')
             save_model(model)
+        
+        # Step in LR scheduler
+            scheduler.step()
 
 
 if __name__ == '__main__':
