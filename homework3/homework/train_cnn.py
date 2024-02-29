@@ -28,7 +28,7 @@ def train(args):
     # Initialize data augementations
     tensor_transformations = transforms.Compose([
         transforms.RandomHorizontalFlip(),
-        transforms.RandomApply([transforms.ColorJitter(brightness = 0.5, contrast = 0.5, saturation = 0.5)], p = 0.8),
+        transforms.ColorJitter(brightness = 0.5, contrast = 0.5, saturation = 0.5),
         transforms.RandomRotation(10, fill = (0,)),
     ])
 
@@ -57,10 +57,6 @@ def train(args):
         # Run training
         for inputs, labels in training_data:
             # Augment data and send to device
-            if args.augment_data:
-                inputs_augmented = tensor_transformations(inputs)
-            else:
-                inputs_augmented = inputs
             inputs_augmented = tensor_transformations(inputs)
             inputs_augmented, labels = inputs_augmented.to(args.device), labels.to(args.device)
             # Zero gradient
@@ -126,8 +122,6 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type = int, default = 25) # Number of epochs
     parser.add_argument('--lr', type = float, default = 1e-4) # Learning rate
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu') # Default device
-    parser.add_argument('--augment_data', type = bool, default = False)
     
-
     args = parser.parse_args()
     train(args)
