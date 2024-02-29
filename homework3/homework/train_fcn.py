@@ -44,7 +44,7 @@ def train(args):
     # Initialize data augmentations
     augmentations = dense_transforms.Compose([
         dense_transforms.RandomHorizontalFlip(),
-        dense_transforms.ColorJitter(brightness = (0.25, 0.75), contrast = (0.25, 0.75), saturation = (0.25, 0.75), hue = (0.1, 0.4)),
+        dense_transforms.ColorJitter(brightness = (0.5), contrast = (0.5), saturation = (0.5), hue = (0.5)),
     ])
 
     # Initialize loggers for tensorboard
