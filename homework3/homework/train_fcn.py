@@ -7,7 +7,6 @@ from . import dense_transforms
 import torch.utils.tensorboard as tb
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.optim.lr_scheduler import StepLR
 
 
 def train(args):
@@ -28,12 +27,13 @@ def train(args):
     # Initialize model
     model = FCN().to(device)
     
-    # Create loss function
-    loss_function = torch.nn.CrossEntropyLoss()
+    # Create loss function and use dense_class_distribution
+    class_weights = torch.tensor([1.0 / i for i in DENSE_CLASS_DISTRIBUTION], dtype = torch.float32).to(device)
+    loss_function = torch.nn.CrossEntropyLoss(weight = class_weights)
 
     # Create optimizer, use model parameters and learning rate
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
-    #scheduler = StepLR(optimizer, step_size = 10, gamma = 0.1) #### ADDED StepLR ###
+
     print(f'Learning rate: {args.lr}')
     print(f'Device: {args.device}')
 
@@ -139,9 +139,7 @@ def train(args):
             print(f'Saving model at epoch {epoch+1} with Validation Accuracy: {validation_accuracy}, '
                   f'and Validation IoU: {validation_iou}')
             save_model(model)
-        
-        # Update scheduler at end of epoch
-        #scheduler.step()
+
 
 
 
