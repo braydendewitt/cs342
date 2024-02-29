@@ -143,10 +143,10 @@ class FCN(torch.nn.Module):
 
         # Decoder layers with spatial dimension adjustments
         self.up1 = nn.ConvTranspose2d(in_channels = 128, out_channels = 64, kernel_size = 3, stride = 2, padding = 1, output_padding = 1)
-        self.dropout1 = nn.Dropout2d(0.3)
+        self.dropout1 = nn.Dropout2d(0.7)
         self.adjust_up1_channels = nn.Conv2d(128, 64, kernel_size = 1) # Adjustment layer for after skip connection (adding d1 to u1)
         self.up2 = nn.ConvTranspose2d(in_channels = 64, out_channels = 32, kernel_size = 3, stride = 2, padding = 1, output_padding = 1)
-        self.dropout2 = nn.Dropout2d(0.3)
+        self.dropout2 = nn.Dropout2d(0.7)
         self.adjust_up2_channels = nn.Conv2d(35, 32, kernel_size = 1) # Adjustment layer for after skip connection (adding x to u2)
 
         # Output to the 5 classes
