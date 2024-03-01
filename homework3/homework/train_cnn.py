@@ -18,8 +18,8 @@ def train(args):
 
     # Create optimizer, use model parameters and learning rate
     #optimizer = optim.SGD(model.parameters(), lr = args.lr, weight_decay = 1e-3)
-    optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = 1e-4)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size = 10, gamma = 0.25)
+    optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = 1e-3)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size = 15, gamma = 0.10)
     print(f'Learning rate: {args.lr}')
     print(f'Device: {args.device}')
 
