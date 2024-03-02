@@ -22,11 +22,6 @@ def calculate_per_class_accuracy(confusion_matrix):
     per_class_accuracy = confusion_matrix.class_accuracy
     return per_class_accuracy
 
-def adjust_class_weights_iou_version(class_iou, base_weights):
-    inverse_iou = 1.0 - class_iou
-    # Normalize weights
-    normalized_weights = (inverse_iou / inverse_iou.sum()) * base_weights.sum()
-    return normalized_weights
 
 def train(args):
 
@@ -51,7 +46,7 @@ def train(args):
     loss_function = torch.nn.CrossEntropyLoss(weight = base_weights)
 
     # Create optimizer, use model parameters and learning rate
-    optimizer = optim.Adam(model.parameters(), lr = args.lr)
+    optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = 1e-3)
 
     print(f'Learning rate: {args.lr}')
     print(f'Device: {args.device}')
@@ -154,9 +149,7 @@ def train(args):
 
         # Calculate per-class stats
         per_class_accuracy = calculate_per_class_accuracy(confusion_matrix)
-        class_iou = confusion_matrix.class_iou
-        #adjusted_weights = adjust_class_weights(per_class_accuracy, base_weights)
-        adjusted_weights = adjust_class_weights_iou_version(class_iou, base_weights)
+        adjusted_weights = adjust_class_weights(per_class_accuracy, base_weights)
         loss_function = torch.nn.CrossEntropyLoss(weight = adjusted_weights.to(device))
         print(f'Epoch: {epoch+1}, Adjusted Weights: {adjusted_weights}, Per-Class Accuracy: {per_class_accuracy}, Per-Class IoU: {confusion_matrix.class_iou}')
         
