@@ -46,7 +46,7 @@ def train(args):
     loss_function = torch.nn.CrossEntropyLoss(weight = base_weights)
 
     # Create optimizer, use model parameters and learning rate
-    optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = 1e-3)
+    optimizer = optim.Adam(model.parameters(), lr = args.lr)
 
     print(f'Learning rate: {args.lr}')
     print(f'Device: {args.device}')
