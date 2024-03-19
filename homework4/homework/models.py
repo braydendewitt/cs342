@@ -1,8 +1,9 @@
 import torch
 import torch.nn.functional as F
+import torch.nn as nn
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-device = torch.device('mps')
+
 
 def extract_peak(heatmap, max_pool_ks=7, min_score=-5, max_det=100):
     """
@@ -50,12 +51,105 @@ def extract_peak(heatmap, max_pool_ks=7, min_score=-5, max_det=100):
         indices = indices[sorted_indices]
 
     # Convert to coordinates and attach score with it
-    peaks = [(score.item(), int(x.item()), int(y.item())) for score, (y,x) in zip(scores, indices)]
+    peaks = [(float(score.item()), int(x.item()), int(y.item())) for score, (y,x) in zip(scores, indices)]
 
     # Return list of peaks
     return peaks
 
+class CNNClassifier(nn.Module): # Taken from HW 3 master solution
+    class Block(nn.Module):
+        # Convolutional block with skip connections (taken from HW 3 Master Solution)
+        def __init__(self, n_input, n_output, kernel_size = 3, stride = 2):
 
+            super().__init__()
+
+            # First convolution layer with batch norm.
+            self.c1 = nn.Conv2d(n_input, n_output, kernel_size = kernel_size, padding = kernel_size//2, stride = stride, bias = False)
+            self.b1 = nn.BatchNorm2d(n_output)
+
+            # Second convolution layer with batch norm.
+            self.c2 = nn.Conv2d(n_output, n_output, kernel_size = kernel_size, padding = kernel_size//2, bias = False)
+            self.b2 = nn.BatchNorm2d(n_output)
+
+            # Third convolution layer with batch norm.
+            self.c3 = nn.Conv2d(n_output, n_output, kernel_size = kernel_size, padding = kernel_size//2, bias = False)
+            self.b3 = nn.BatchNorm2d(n_output)
+
+            # Skip connection
+            self.skip = nn.Conv2d(n_input, n_output, kernel_size = 1, stride = stride)
+        
+        def forward(self,x):
+            # Apply convolutions and skip connection, and activation function
+            return F.relu(self.b3(self.c3(F.relu(self.b2(self.c2(F.relu(self.b1(self.c1(x)))))))) + self.skip(x))
+
+class FCN(nn.Module): # Taken from HW 3 master solution
+
+    class UpBlock(nn.Module):
+        # Up-convolution block for decoder
+        def __init__(self, n_input, n_output, kernel_size = 3, stride = 2):
+
+            super().__init__()
+            self.c1 = nn.ConvTranspose2d(n_input, n_output, kernel_size = kernel_size, padding = kernel_size//2, stride = stride, output_padding = 1)
+        
+        def forward(self, x):
+            # Apply up-convolution with activation function
+            return F.relu(self.c1(x))
+
+    def __init__(self, layers = [16, 32, 64, 128], n_output_channels = 5, kernel_size = 3, use_skip = True):
+        # Adjusted for extra credit (n_output_channels is changed) #
+
+        super().__init__()
+
+        # Normalization parameters
+        self.input_mean = torch.Tensor([0.2788, 0.2657, 0.2629])
+        self.input_std = torch.Tensor([0.2064, 0.1944, 0.2252])
+
+        # Initialize blocks
+        self.convs = nn.ModuleList()
+        self.upconvs = nn.ModuleList()
+        self.use_skip = use_skip
+
+        # Starting with 3 channels (for RGB images)
+        c = 3
+        for i, l in enumerate(layers):
+            self.convs.append(CNNClassifier.Block(c, l, kernel_size, 2))
+            c = l
+
+        # Upsampling blocks    
+        for i, l in reversed(list(enumerate(layers))):
+            upconv = self.UpBlock(c + (layers[i-1] if i > 0 and use_skip else 0), l, kernel_size, 2)
+            self.upconvs.append(upconv)
+            c = l # Set current channels to output channels of the upconv block
+
+        # Final layer to make heatmaps and sizes
+        self.classifier = nn.Conv2d(c, n_output_channels, 1)
+
+    def forward(self, x):
+        # Normalize input
+        x = (x - self.input_mean[None, :, None, None].to(x.device)) / self.input_std[None, :, None, None].to(x.device)
+        activations = []
+        original_size = x.shape[2:]
+
+        # Downsample
+        for conv in self.convs:
+            x = conv(x)
+            activations.append(x)
+        
+        # Upsample and apply skip connections
+            for i, upconv in enumerate(reversed(self.upconvs)):
+                x = upconv(x)
+                if self.use_skip and i < len(activations) - 1:
+                    skip_connection = activations[-i-2] # Get feature map from encoder
+                    # Ensure dimensions/padding
+                    diffY = skip_connection.size()[2] - x.size()[2]
+                    diffX = skip_connection.size()[3] - x.size()[3]
+                    x = F.pad(x, [diffX//2, diffX - diffX//2, diffY//2, diffY - diffY//2])
+                    x = torch.cat([x, skip_connection], dim = 1)
+        
+        # Classifier
+        x = self.classifier(x)
+        return x
+    
 
 class Detector(torch.nn.Module):
     def __init__(self):
@@ -63,8 +157,11 @@ class Detector(torch.nn.Module):
            Your code here.
            Setup your detection network
         """
-        super().__init__()
-        raise NotImplementedError('Detector.__init__')
+        super(Detector, self).__init__()
+
+        # Intialize FCN (3 output classes, 5 channels each) and send to GPU
+        self.fcn = FCN(layers = [16, 32, 64, 128], n_output_channels = 15, kernel_size = 3, use_skip = True)
+        self.fcn.to(device)
 
     def forward(self, x):
         """
@@ -72,7 +169,8 @@ class Detector(torch.nn.Module):
            Implement a forward pass through the network, use forward for training,
            and detect for detection
         """
-        raise NotImplementedError('Detector.forward')
+        # Forward pass through FCN
+        return self.fcn(x)
 
     def detect(self, image):
         """
@@ -87,8 +185,35 @@ class Detector(torch.nn.Module):
                  scalar. Otherwise pytorch might keep a computation graph in the background and your program will run
                  out of memory.
         """
-        raise NotImplementedError('Detector.detect')
+        # Send image to device
+        image = image.to(device)
+        
+        # Forward pass to get predictions
+        with torch.no_grad():
+            predictions = self.forward(image.unsqueeze(0)) # Adds batch dimension
+            predictions = torch.sigmoid(predictions) # Convert to probabilities
 
+        # Initialize detections
+        detections = [[] for _ in range(3)]
+
+        # For each class...
+        for i in range(3):
+            # Adjust indices
+            heatmap_channel = i*5
+            width_channel = heatmap_channel + 3
+            height_channel = heatmap_channel + 4
+
+            # Get heatmap and corresponding peaks
+            heatmap = predictions[0, heatmap_channel]
+            peaks = extract_peak(heatmap, max_det = 30)
+
+            # Get detections
+            for score, cx, cy in peaks:
+                width = predictions[0, width_channel, cy, cx].item() * image.shape[2]
+                height = predictions[0, height_channel, cy, cx].item() * image.shape[1]
+                detections[i].append((score, cx, cy, width, height))
+        
+        return detections
 
 def save_model(model):
     from torch import save
