@@ -107,10 +107,9 @@ def calculate_pos_weights(data_loader, device, q=0.66):
     pos_sums = torch.zeros(3, device = device)  #3 heatmap channels
     total_pixels = torch.zeros(3, device = device)
     
-    for imgs, annotations in data_loader:
-        labels = annotations[0].to(device)
+    for imgs, heatmaps, sizes in data_loader:
         for c in range(3):  # Iterate over each channel
-            channel_labels = labels[:, c, :, :]
+            channel_labels = heatmaps[:, c, :, :]
             above_threshold = (channel_labels > q).float()
             pos_sums[c] += above_threshold.sum()
             total_pixels[c] += torch.numel(channel_labels)
@@ -177,7 +176,7 @@ def train(args):
     valid_data = load_detection_data('dense_data/valid', transform = transformation, batch_size = args.batch_size)
 
     # Loss functions
-    initial_pos_weights = calculate_pos_weights(train_data, device).to(device)
+    initial_pos_weights = torch.ones(3, device = device) # Initial pos_weights
     heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights)
     size_loss_function = torch.nn.MSELoss()
 
@@ -196,11 +195,12 @@ def train(args):
         
         # Set model to train
         model.train()
-        for images, annotations in train_data:
+        for images, heatmaps, sizes in train_data:
 
             # Send to device
             images = images.to(device)
-            annotations = [ann.to(device) for ann in annotations]
+            heatmaps = heatmaps.to(device)
+            sizes = sizes.to(device)
 
             # Zero gradient
             optimizer.zero_grad()
@@ -209,7 +209,7 @@ def train(args):
             predictions = model(images)
 
             # Calculate loss
-            loss = compute_loss(predictions, annotations, heatmap_loss_function, size_loss_function, device)
+            loss = compute_loss(predictions, (heatmaps, sizes), heatmap_loss_function, size_loss_function, device)
 
             # Backward pass
             loss.backward()
@@ -235,7 +235,7 @@ def train(args):
             print(f"Current AP values: {ap_values:.4f}")
         
         # Update pos_weights
-        updated_pos_weights = calculate_pos_weights(train_data).to(device)
+        updated_pos_weights = calculate_pos_weights(train_data, device)
         heatmap_loss_function.pos_weight = updated_pos_weights
 
         print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, New avg AP: {average_ap: .4f}, Updated Weights: {updated_pos_weights}")
