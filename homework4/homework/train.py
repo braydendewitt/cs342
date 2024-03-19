@@ -120,7 +120,7 @@ def calculate_pos_weights(data_loader, device, q=0.66):
     return pos_weights
 
 
-def compute_loss(predictions, annotations, pos_weights, size_loss, device):
+def compute_loss(predictions, annotations, bce_loss, size_loss, device):
  
     # Unpack tuple
     heatmap_annotations, size_annotations = annotations
@@ -134,12 +134,15 @@ def compute_loss(predictions, annotations, pos_weights, size_loss, device):
     size_annotations_flat = size_annotations.reshape(-1,2)
 
     # Calculate heatmap loss
-    pos_weights = pos_weights.to(device)
-    print("heatmap_preds size:", heatmap_preds.shape)
-    print('heatmap_annotations size:', heatmap_annotations.shape)
-    print('pos_weights size:', pos_weights.shape)
-    heatmap_loss_value = torch.nn.functional.binary_cross_entropy_with_logits(heatmap_preds, heatmap_annotations, pos_weight = pos_weights)
+    print("heatmap_preds shape:", heatmap_preds.shape)
+    print("heatmap_annotations shape:", heatmap_annotations.shape)
+    print("pos_weight shape:", bce_loss.pos_weight.shape)
 
+    if bce_loss.pos_weight.device != device:
+        print('Changing weight to device')
+        bce_loss.pos_weight = bce_loss.pos_weight.to(device)
+
+    heatmap_loss_value = bce_loss(heatmap_preds, heatmap_annotations)
 
     # Calculate object centers (for size predictions)
     object_centers = heatmap_annotations.sum(1, keepdim = True) > 0
@@ -186,8 +189,8 @@ def train(args):
     valid_data = load_detection_data('dense_data/valid', transform = transformation, batch_size = args.batch_size)
 
     # Loss functions
-    pos_weights = torch.tensor([1.0, 1.0, 1.0], device = device) # Initial pos_weights
-    #heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = current_pos_weights.to(device))
+    initial_pos_weights = torch.tensor([1.0, 1.0, 1.0], device = device) # Initial pos_weights
+    heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights.to(device))
     size_loss_function = torch.nn.MSELoss()
 
     # Initialize tb logging
@@ -219,7 +222,7 @@ def train(args):
             predictions = model(images)
 
             # Calculate loss
-            loss = compute_loss(predictions, (heatmaps, sizes), pos_weights, size_loss_function, device)
+            loss = compute_loss(predictions, (heatmaps, sizes), heatmap_loss_function, size_loss_function, device)
 
             # Backward pass
             loss.backward()
@@ -245,8 +248,8 @@ def train(args):
             print(f"Current AP values: {ap_values:.4f}")
         
         # Update pos_weights
-        pos_weights = calculate_pos_weights(train_data, device)
-        pos_weights = pos_weights.to(device)
+        updated_pos_weights = calculate_pos_weights(train_data, device)
+        heatmap_loss_function.pos_weight = updated_pos_weights
 
         print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, New avg AP: {average_ap: .4f}, Updated Weights: {updated_pos_weights}")
 
