@@ -90,33 +90,25 @@ class PR:
 
 ## Helper functions ##
 def calculate_ap(model, data_loader, device):
-    # Initialize PR instances for each class
-    pr_box = [PR(is_close=point_in_box) for _ in range(3)]  # For box AP calculation
-    pr_dist = [PR(is_close=point_close) for _ in range(3)]  # For distance AP calculation
-    pr_iou = [PR(is_close=box_iou) for _ in range(3)]  # For IoU AP calculation
+    pr_box = [PR() for _ in range(3)]
+    pr_dist = [PR(is_close=point_close) for _ in range(3)]
+    pr_iou = [PR(is_close=box_iou) for _ in range(3)]
 
-    with torch.no_grad():
-        for images, heatmaps, sizes in data_loader:
-            images = images.to(device)
-            detections = model.detect(images)
-            print("detections: ", detections)
-            print("detections shape: ", detections.shape)
-            # For each class...
-            for class_index in range(3):
-                ground_truth_boxes = sizes[class_index]
-                for detection in detections[class_index]:
-                    # Convert to allow for adding
-                    converted_detection = [(det[1], det[2], det[1]+det[3], det[2]+det[4], det[0]) for det in detection]
-                    pr_box[class_index].add(converted_detection, ground_truth_boxes)
-                    pr_dist[class_index].add(converted_detection, ground_truth_boxes)
-                    pr_iou[class_index].add(converted_detection, ground_truth_boxes)
+    for img, *gts in data_loader:
+        with torch.no_grad():
 
-    # Calculate and return AP for each class and AP calculation method
-    ap_values_box = [pr.average_prec() for pr in pr_box]
-    ap_values_dist = [pr.average_prec() for pr in pr_dist]
-    ap_values_iou = [pr.average_prec() for pr in pr_iou]
+            dets = model.detect(img.to(device))
+            for i, gt in enumerate(gts):
+                pr_box[i].add(dets[i], gt)
+                pr_dist[i].add(dets[i], gt)
+                pr_iou[i].add(dets[i], gt)
 
-    return ap_values_box, ap_values_dist, ap_values_iou
+        print("\nPR_box:", pr_box)
+        print("\nPR dist: ", pr_dist)
+        print("\nPR iou: ", pr_iou)
+
+        print("\t", "*" * 40, "\n")
+    return (np.mean(pr_box), np.mean(pr_dist), np.mean(pr_iou))
 
 
 def calculate_pos_weights(data_loader, device, q=0.66):
@@ -256,21 +248,22 @@ def train(args):
         model.eval()
 
         # Calculate AP values
-        # ap_values = calculate_ap(model, valid_data, device)
-        # average_ap = np.mean(ap_values)
-        # if average_ap > best_ap:
-            #best_ap = average_ap
-            #save_model(model) 
-           # print(f"Saved model with new best avg AP: {best_ap: .4f}")
-            #print(f"Current AP values: {ap_values:.4f}")
-        
+        if epoch % 3 == 0 or epoch == 0:
+            box, dist, iou = calculate_ap(model, valid_data, device)
+            average_ap = np.mean(box, dist, iou)
+            if average_ap > best_ap:
+                best_ap = average_ap
+                save_model(model)
+                print(f"Saved model with new best avg AP: {best_ap: .4f}")
+
+     
         # Update pos_weights
         updated_pos_weights = calculate_pos_weights(train_data, device)
         updated_pos_weights = updated_pos_weights.reshape(1, -1, 1, 1)
         heatmap_loss_function.pos_weight = updated_pos_weights.to(device)
-        save_model(model)
-        #print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, New avg AP: {average_ap: .4f}, Updated Weights: {updated_pos_weights}")
-        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, Updated Weights: {updated_pos_weights}")
+        #save_model(model)
+        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, New avg AP: {average_ap: .4f}, Updated Weights: {updated_pos_weights}")
+        #print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, Updated Weights: {updated_pos_weights}")
 
 
 
