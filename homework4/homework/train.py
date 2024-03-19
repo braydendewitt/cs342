@@ -135,12 +135,10 @@ def compute_loss(predictions, annotations, pos_weights, size_loss, device):
 
     # Calculate heatmap loss
     pos_weights = pos_weights.to(device)
-    heatmap_preds_flat = heatmap_preds.reshape(-1)
-    heatmap_annotations_flat = heatmap_annotations.reshape(-1)
-    print("heatmap_preds_flat size:", heatmap_preds_flat.shape)
-    print('heatmap_annotations_flat size:', heatmap_annotations_flat.shape)
+    print("heatmap_preds size:", heatmap_preds.shape)
+    print('heatmap_annotations size:', heatmap_annotations.shape)
     print('pos_weights size:', pos_weights.shape)
-    heatmap_loss_value = torch.nn.functional.binary_cross_entropy_with_logits(heatmap_preds_flat, heatmap_annotations_flat, pos_weight = pos_weights)
+    heatmap_loss_value = torch.nn.functional.binary_cross_entropy_with_logits(heatmap_preds, heatmap_annotations, pos_weight = pos_weights)
 
 
     # Calculate object centers (for size predictions)
