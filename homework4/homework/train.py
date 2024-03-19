@@ -90,16 +90,32 @@ class PR:
 
 ## Helper functions ##
 def calculate_ap(model, data_loader, device):
-    pr_instances = [PR() for _ in range(3)] # For 3 classes...
+    # Initialize PR instances for each class
+    pr_box = [PR(is_close=point_in_box) for _ in range(3)]  # For box AP calculation
+    pr_dist = [PR(is_close=point_close) for _ in range(3)]  # For distance AP calculation
+    pr_iou = [PR(is_close=box_iou) for _ in range(3)]  # For IoU AP calculation
+
     with torch.no_grad():
-        for images, annotations in data_loader:
+        for images, heatmaps, sizes in data_loader:
             images = images.to(device)
             detections = model.detect(images)
-            for i, pr in enumerate(pr_instances):
-                pr.add(detections[i], annotations[i].numpy())
-    # Calculate AP for each class
-    ap_values = [pr.average_prec for pr in pr_instances]
-    return ap_values
+
+            # For each class...
+            for class_index in range(3):
+                ground_truth_boxes = sizes[class_index]
+                for detection in detections[class_index]:
+                    # Convert to allow for adding
+                    converted_detection = [(det[1], det[2], det[1]+det[3], det[2]+det[4], det[0]) for det in detection]
+                    pr_box[class_index].add(converted_detection, ground_truth_boxes)
+                    pr_dist[class_index].add(converted_detection, ground_truth_boxes)
+                    pr_iou[class_index].add(converted_detection, ground_truth_boxes)
+
+    # Calculate and return AP for each class and AP calculation method
+    ap_values_box = [pr.average_prec() for pr in pr_box]
+    ap_values_dist = [pr.average_prec() for pr in pr_dist]
+    ap_values_iou = [pr.average_prec() for pr in pr_iou]
+
+    return ap_values_box, ap_values_dist, ap_values_iou
 
 
 def calculate_pos_weights(data_loader, device, q=0.66):
