@@ -171,7 +171,7 @@ class Detector(torch.nn.Module):
         
         # Forward pass to get predictions
         with torch.no_grad():
-            predictions = self.forward(image.unsqueeze(0)) # Adds batch dimension
+            predictions = self.forward(image) # Adds batch dimension
             predictions = torch.sigmoid(predictions) # Convert to probabilities
 
         # Initialize detections
