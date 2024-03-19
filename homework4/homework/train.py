@@ -190,6 +190,7 @@ def train(args):
 
     # Loss functions
     initial_pos_weights = torch.tensor([1.0, 1.0, 1.0], device = device) # Initial pos_weights
+    initial_pos_weights = initial_pos_weights.reshape(1, -1, 1, 1) # Reshape for broadcasting
     heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights.to(device))
     size_loss_function = torch.nn.MSELoss()
 
@@ -249,7 +250,8 @@ def train(args):
         
         # Update pos_weights
         updated_pos_weights = calculate_pos_weights(train_data, device)
-        heatmap_loss_function.pos_weight = updated_pos_weights
+        updated_pos_weights = updated_pos_weights.reshape(1, -1, 1, 1)
+        heatmap_loss_function.pos_weight = updated_pos_weights.to(device)
 
         print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, New avg AP: {average_ap: .4f}, Updated Weights: {updated_pos_weights}")
 
