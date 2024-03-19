@@ -120,27 +120,32 @@ def calculate_pos_weights(data_loader, device, q=0.66):
     return pos_weights
 
 
-def compute_loss(predictions, annotations, bce_loss, size_loss, device):
+def compute_loss(predictions, annotations, bce_loss, size_loss):
  
+    # Unpack tuple
+    heatmap_annotations, size_annotations = annotations
+
     # Get predictions
-    heatmap_preds = predictions[:, :3, :, :]
-    size_preds = predictions[:, :3, :, :].reshape(-1,2)
+    heatmap_preds = predictions[:, :3, :, :] # Use first 3 channels for heatmap
+    size_preds = predictions[:, 3:5, :, :] # Use last two channels for size
 
-    # Get annotations
-    heatmap_annotations = annotations[0].to(device)
-    size_annotations = annotations[1].to(device).reshape(-1,2)
+    # Resize and flatten
+    size_preds_flat = size_preds.permute(0,2,3,1).reshape(-1,2)
+    size_annotations_flat = size_annotations.reshape(-1,2)
 
-    # Calculate object centers
-    object_centers = heatmap_annotations.sum(1, keepdim = True) > 0
-    object_centers = object_centers.repeat(1, 2, 1, 1).reshape(-1, 2)
-    
-    # Get predictions and annotations for object centers
-    size_preds_filtered = size_preds[object_centers[:, 0]]
-    size_annotations_filtered = size_annotations[object_centers[:, 0]]
-
-    # Calculate loss
+    # Calculate heatmap loss
     heatmap_loss_value = bce_loss(heatmap_preds, heatmap_annotations)
-    size_loss_value = size_loss(size_preds_filtered, size_annotations_filtered)
+
+    # Calculate object centers (for size predictions)
+    object_centers = heatmap_annotations.sum(1, keepdim = True) > 0
+    object_centers_flat = object_centers.view(-1) # Flatten to match with size
+
+    # Filter to only object centers
+    size_preds_filtered = size_preds_flat[object_centers_flat]
+    size_annotations_filtered = size_annotations_flat[object_centers_flat]
+
+    # Calculate size loss
+    size_loss_value = size_loss(size_preds_filtered, size_annotations_filtered) if object_centers_flat.any() else 0
 
     # Combine total loss (heatmap and size)
     combined_loss = heatmap_loss_value + size_loss_value
@@ -209,7 +214,7 @@ def train(args):
             predictions = model(images)
 
             # Calculate loss
-            loss = compute_loss(predictions, (heatmaps, sizes), heatmap_loss_function, size_loss_function, device)
+            loss = compute_loss(predictions, (heatmaps, sizes), heatmap_loss_function, size_loss_function)
 
             # Backward pass
             loss.backward()
