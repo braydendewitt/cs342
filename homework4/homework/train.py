@@ -7,73 +7,25 @@ from . import dense_transforms
 import torch.utils.tensorboard as tb
 import torch.optim as optim
 
-## Helper functions ##
-def calculate_pos_weights(data_loader, device, q=0.5):
-    # Data structure to store the sum of weights for each channel
-    weights_sum = torch.zeros(3, device=device)
-    # Counter for the number of batches, to calculate the average later
-    batch_count = 0
+# Focal Loss
+class FocalLoss(torch.nn.Module):
+    def __init__(self, alpha = 0.25, gamma = 2.0, reduction = 'mean'):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
     
-    for imgs, heatmaps, sizes in data_loader:
-        batch_size = imgs.shape[0]
-        for c in range(3):  # Iterate over each channel
-            channel_labels = heatmaps[:, c, :, :]
-            
-            # Calculate the denominator: count of values above the threshold q
-            denominator = (channel_labels > q).sum().float()
-            # Calculate the numerator: total possible values - denominator
-            numerator = (batch_size * channel_labels.shape[1] * channel_labels.shape[2]) - denominator
-            
-            # Calculate the weights for this batch and channel
-            batch_weight = numerator / denominator if denominator != 0 else torch.tensor(0.0, device=device)
-            
-            # Aggregate the weights for averaging later
-            weights_sum[c] += batch_weight
-        
-        batch_count += 1
-    
-    # Calculate the average weights across all batches
-    avg_weights = weights_sum / batch_count
-    
-    return avg_weights
+    def forward(self, inputs, targets):
+        bce_loss = torch.nn.functional.binary_cross_entropy_with_logits(inputs, targets, reduction = 'none')
+        pt = torch.exp(-bce_loss)
+        focal_loss = self.alpha * (1 - pt) ** self.gamma * bce_loss
 
-
-
-def compute_loss(predictions, annotations, bce_loss, size_loss, device):
- 
-    # Unpack tuple
-    heatmap_annotations, size_annotations = annotations
-
-    # Get predictions
-    heatmap_preds = predictions[:, :3, :, :] # Use first 3 channels for heatmap
-    size_preds = predictions[:, 3:5, :, :] # Use last two channels for size
-
-    # Resize and flatten
-    size_preds_flat = size_preds.permute(0,2,3,1).reshape(-1,2)
-    size_annotations_flat = size_annotations.reshape(-1,2)
-
-    # Calculate heatmap loss
-    #print("heatmap_preds shape:", heatmap_preds.shape)
-    #print("heatmap_annotations shape:", heatmap_annotations.shape)
-    #print("pos_weight shape:", bce_loss.pos_weight.shape)
-
-    bce_loss.pos_weight = bce_loss.pos_weight.to(device)
-    heatmap_loss_value = bce_loss(heatmap_preds, heatmap_annotations)
-
-    # Calculate object centers (for size predictions)
-    object_centers = heatmap_annotations.sum(1, keepdim = True) > 0
-    object_centers_flat = object_centers.view(-1) # Flatten to match with size
-
-    # Filter to only object centers
-    size_preds_filtered = size_preds_flat[object_centers_flat]
-    size_annotations_filtered = size_annotations_flat[object_centers_flat]
-
-    # Calculate size loss
-    size_loss_value = size_loss(size_preds_filtered, size_annotations_filtered) if object_centers_flat.any() else 0
-
-    # Combine total loss (heatmap and size)
-    combined_loss = heatmap_loss_value + size_loss_value
-    return combined_loss
+        if self.reduction == 'mean':
+            return torch.mean(focal_loss)
+        elif self.reduction == 'sum':
+            return torch.sum(focal_loss)
+        else:
+            return focal_loss
 
 
 ## Training loop ##
@@ -104,16 +56,15 @@ def train(args):
         dense_transforms.ToHeatmap()
     ])
 
+    # Initialize focal loss
+    focal_loss_function = FocalLoss(alpha = 0.25, gamma = 2.0, reduciton = 'mean').to(device)
+    
+    # Initialize size loss
+    size_loss_function = torch.nn.MSELoss().to(device)
+
     # Load in data
     train_data = load_detection_data('dense_data/train', transform = transformation, batch_size = args.batch_size)
     #valid_data = load_detection_data('dense_data/valid', transform = transformation, batch_size = args.batch_size)
-
-    # Loss functions
-    #initial_pos_weights = torch.tensor([1.0, 1.0, 1.0], device = device) # Initial pos_weights
-    #initial_pos_weights = initial_pos_weights.reshape(1, -1, 1, 1) # Reshape for broadcasting
-    #heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights.to(device))
-    heatmap_loss_function = torch.nn.BCEWithLogitsLoss(reduction = 'mean')
-    size_loss_function = torch.nn.MSELoss()
 
     # Initialize tb logging
     train_logger, valid_logger = None, None
@@ -130,11 +81,6 @@ def train(args):
         
         # Set model to train
         model.train()
-
-        # Update pos_weights
-        class_pos_weights = calculate_pos_weights(train_data, device)
-        class_pos_weights = class_pos_weights.reshape(1, -1, 1, 1)
-        heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = class_pos_weights.to(device), reduction = 'mean')
        
         for images, heatmaps, sizes in train_data:
 
@@ -150,7 +96,9 @@ def train(args):
             predictions = model(images)
 
             # Calculate loss
-            loss = compute_loss(predictions, (heatmaps, sizes), heatmap_loss_function, size_loss_function, device)
+            heatmap_loss = focal_loss_function(predictions[:, :3, :, :], heatmaps)
+            size_loss = size_loss_function(predictions[:, 3:5, :, :].permute(0, 2, 3, 1).reshape(-1, 2), sizes.reshape(-1, 2))
+            loss = heatmap_loss + size_loss
 
             # Backward pass
             loss.backward()
@@ -168,14 +116,7 @@ def train(args):
 
         # Calculate AP values
      
-
-            
-        # Update pos_weights
-       # updated_pos_weights = calculate_pos_weights(train_data, device)
-        #updated_pos_weights = updated_pos_weights.reshape(1, -1, 1, 1)
-        #heatmap_loss_function.pos_weight = updated_pos_weights.to(device)
-        #print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, Updated Weights: {updated_pos_weights}")
-        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()},  Weights: {class_pos_weights}")
+        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}")
 
         # Save model
         if float(loss.item()) < current_loss:
@@ -201,7 +142,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--log_dir')
+    parser.add_argument('--log_dir', default = None)
     # Put custom arguments here
     parser.add_argument('--epochs', type=int, default=10) # Number of epochs
     parser.add_argument('--batch_size', type=int, default=32) # Batch size
