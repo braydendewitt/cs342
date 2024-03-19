@@ -96,9 +96,10 @@ def train(args):
     #valid_data = load_detection_data('dense_data/valid', transform = transformation, batch_size = args.batch_size)
 
     # Loss functions
-    initial_pos_weights = torch.tensor([1.0, 1.0, 1.0], device = device) # Initial pos_weights
-    initial_pos_weights = initial_pos_weights.reshape(1, -1, 1, 1) # Reshape for broadcasting
-    heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights.to(device))
+    #initial_pos_weights = torch.tensor([1.0, 1.0, 1.0], device = device) # Initial pos_weights
+    #initial_pos_weights = initial_pos_weights.reshape(1, -1, 1, 1) # Reshape for broadcasting
+    #heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights.to(device))
+    heatmap_loss_function = torch.nn.BCEWithLogitsLoss(reduction = 'mean')
     size_loss_function = torch.nn.MSELoss()
 
     # Initialize tb logging
@@ -116,6 +117,11 @@ def train(args):
         
         # Set model to train
         model.train()
+
+        # Update pos_weights
+        class_pos_weights = calculate_pos_weights(train_data, device)
+        heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = class_pos_weights.to(device), reduction = 'mean')
+       
         for images, heatmaps, sizes in train_data:
 
             # Send to device
@@ -151,10 +157,11 @@ def train(args):
 
             
         # Update pos_weights
-        updated_pos_weights = calculate_pos_weights(train_data, device)
-        updated_pos_weights = updated_pos_weights.reshape(1, -1, 1, 1)
-        heatmap_loss_function.pos_weight = updated_pos_weights.to(device)
-        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, Updated Weights: {updated_pos_weights}")
+       # updated_pos_weights = calculate_pos_weights(train_data, device)
+        #updated_pos_weights = updated_pos_weights.reshape(1, -1, 1, 1)
+        #heatmap_loss_function.pos_weight = updated_pos_weights.to(device)
+        #print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, Updated Weights: {updated_pos_weights}")
+        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()},  Weights: {class_pos_weights}")
 
         # Save model
         if float(loss.item()) < current_loss:
