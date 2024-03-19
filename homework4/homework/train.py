@@ -268,7 +268,7 @@ def train(args):
         updated_pos_weights = calculate_pos_weights(train_data, device)
         updated_pos_weights = updated_pos_weights.reshape(1, -1, 1, 1)
         heatmap_loss_function.pos_weight = updated_pos_weights.to(device)
-
+        save_model(model)
         #print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, New avg AP: {average_ap: .4f}, Updated Weights: {updated_pos_weights}")
         print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, Updated Weights: {updated_pos_weights}")
 
