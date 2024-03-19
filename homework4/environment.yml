@@ -6,7 +6,7 @@ dependencies:
 - pillow
 - matplotlib
 - numpy
-- "pytorch>=1.6.0"
+- "pytorch=1.13.0"
 - "torchvision>=0.7.0"
 - "tensorboard>=1.14"
 - future

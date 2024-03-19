@@ -7,7 +7,8 @@ import torch
 from .grader import Grader, Case
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
+device = torch.device('mps')
+print(device)
 
 def point_in_box(pred, lbl):
     px, py = pred[:, None, 0], pred[:, None, 1]

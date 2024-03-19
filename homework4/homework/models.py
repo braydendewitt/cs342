@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+device = torch.device('mps')
 
 def extract_peak(heatmap, max_pool_ks=7, min_score=-5, max_det=100):
     """
@@ -13,7 +14,47 @@ def extract_peak(heatmap, max_pool_ks=7, min_score=-5, max_det=100):
        @return: List of peaks [(score, cx, cy), ...], where cx, cy are the position of a peak and score is the
                 heatmap value at the peak. Return no more than max_det peaks per image
     """
-    raise NotImplementedError('extract_peak')
+    
+    # Send heatmap to GPU
+    heatmap = heatmap.to(device)
+
+    # Convert to order 4 tensor
+    heatmap_tensor = heatmap[None, None]
+
+    # Use max pooling for local maxima
+    max_pooled_heatmap = F.max_pool2d(heatmap_tensor, kernel_size = max_pool_ks, stride = 1, padding = max_pool_ks//2)
+
+    # Find local maxima
+    local_maxima = (heatmap == max_pooled_heatmap.squeeze())
+
+    # Identify peaks that do not meet minimum score
+    scores = heatmap[local_maxima]
+    indices = torch.nonzero(local_maxima, as_tuple = True)
+    valid_scores = scores > min_score
+
+    # Only keep ones that are greater than minimum score
+    scores = scores[valid_scores]
+    indices = torch.stack(indices, dim = -1)[valid_scores]
+
+    # Check how many detections there are; if more than max allowed, only keep the top/best ones
+    if scores.numel() == 0: # No detections
+        return []
+    
+    if scores.size(0) > max_det: # If more than allowed
+        top_scores, top_indices = torch.topk(scores, k = max_det)
+        indices = indices[top_indices]
+        scores = top_scores
+    else: # Sort by score
+        _, sorted_indices = scores.sort(descending = True)
+        scores = scores[sorted_indices]
+        indices = indices[sorted_indices]
+
+    # Convert to coordinates and attach score with it
+    peaks = [(score.item(), int(x.item()), int(y.item())) for score, (y,x) in zip(scores, indices)]
+
+    # Return list of peaks
+    return peaks
+
 
 
 class Detector(torch.nn.Module):
