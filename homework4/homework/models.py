@@ -95,60 +95,41 @@ class FCN(nn.Module): # Taken from HW 3 master solution
             # Apply up-convolution with activation function
             return F.relu(self.c1(x))
 
-    def __init__(self, layers = [16, 32, 64, 128], n_output_channels = 5, kernel_size = 3, use_skip = True):
-        # Adjusted for extra credit (n_output_channels is changed) #
-
+    def __init__(self, layers=[16, 32, 64, 128], n_output_channels=5, kernel_size=3, use_skip=True):
         super().__init__()
-
-        # Normalization parameters
         self.input_mean = torch.Tensor([0.2788, 0.2657, 0.2629])
         self.input_std = torch.Tensor([0.2064, 0.1944, 0.2252])
 
-        # Initialize blocks
-        self.convs = nn.ModuleList()
-        self.upconvs = nn.ModuleList()
-        self.use_skip = use_skip
-
-        # Starting with 3 channels (for RGB images)
         c = 3
+        self.use_skip = use_skip
+        self.n_conv = len(layers)
+        skip_layer_size = [3] + layers[:-1]
         for i, l in enumerate(layers):
-            self.convs.append(CNNClassifier.Block(c, l, kernel_size, 2))
+            self.add_module('conv%d' % i, CNNClassifier.Block(c, l, kernel_size, 2))
             c = l
-
-        # Upsampling blocks    
-        for i, l in reversed(list(enumerate(layers))):
-            upconv = self.UpBlock(c + (layers[i-1] if i > 0 and use_skip else 0), l, kernel_size, 2)
-            self.upconvs.append(upconv)
-            c = l # Set current channels to output channels of the upconv block
-
-        # Final layer to make heatmaps and sizes
-        self.classifier = nn.Conv2d(c, n_output_channels, 1)
+        for i, l in list(enumerate(layers))[::-1]:
+            self.add_module('upconv%d' % i, self.UpBlock(c, l, kernel_size, 2))
+            c = l
+            if self.use_skip:
+                c += skip_layer_size[i]
+        self.classifier = torch.nn.Conv2d(c, n_output_channels, 1)
 
     def forward(self, x):
-        # Normalize input
-        x = (x - self.input_mean[None, :, None, None].to(x.device)) / self.input_std[None, :, None, None].to(x.device)
-        activations = []
-        original_size = x.shape[2:]
+        z = (x - self.input_mean[None, :, None, None].to(x.device)) / self.input_std[None, :, None, None].to(x.device)
+        up_activation = []
+        for i in range(self.n_conv):
+            # Add all the information required for skip connections
+            up_activation.append(z)
+            z = self._modules['conv%d'%i](z)
 
-        # Downsample
-        for conv in self.convs:
-            x = conv(x)
-            activations.append(x)
-        
-        # Upsample and apply skip connections
-            for i, upconv in enumerate(reversed(self.upconvs)):
-                x = upconv(x)
-                if self.use_skip and i < len(activations) - 1:
-                    skip_connection = activations[-i-2] # Get feature map from encoder
-                    # Ensure dimensions/padding
-                    diffY = skip_connection.size()[2] - x.size()[2]
-                    diffX = skip_connection.size()[3] - x.size()[3]
-                    x = F.pad(x, [diffX//2, diffX - diffX//2, diffY//2, diffY - diffY//2])
-                    x = torch.cat([x, skip_connection], dim = 1)
-        
-        # Classifier
-        x = self.classifier(x)
-        return x
+        for i in reversed(range(self.n_conv)):
+            z = self._modules['upconv%d'%i](z)
+            # Fix the padding
+            z = z[:, :, :up_activation[i].size(2), :up_activation[i].size(3)]
+            # Add the skip connection
+            if self.use_skip:
+                z = torch.cat([z, up_activation[i]], dim=1)
+        return self.classifier(z)
     
 
 class Detector(torch.nn.Module):
