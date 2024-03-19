@@ -8,7 +8,7 @@ import torch.utils.tensorboard as tb
 import torch.optim as optim
 
 ## Helper functions ##
-def calculate_pos_weights(data_loader, device, q=0.66):
+def calculate_pos_weights(data_loader, device, q=0.5):
     # Initialize sums for calculating positive weights for each channel
     pos_sums = torch.zeros(3, device = device)  #3 heatmap channels
     total_pixels = torch.zeros(3, device = device)
@@ -93,7 +93,7 @@ def train(args):
 
     # Load in data
     train_data = load_detection_data('dense_data/train', transform = transformation, batch_size = args.batch_size)
-    valid_data = load_detection_data('dense_data/valid', transform = transformation, batch_size = args.batch_size)
+    #valid_data = load_detection_data('dense_data/valid', transform = transformation, batch_size = args.batch_size)
 
     # Loss functions
     initial_pos_weights = torch.tensor([1.0, 1.0, 1.0], device = device) # Initial pos_weights
@@ -108,7 +108,7 @@ def train(args):
         valid_logger = tb.SummaryWriter(path.join(args.log_dir, 'valid'), flush_secs=1)
 
     # Initialize loss
-    current_loss = float(10000000.00)
+    current_loss = float('inf')
     global_step = 0
 
     # Training loop
@@ -157,8 +157,8 @@ def train(args):
         print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, Updated Weights: {updated_pos_weights}")
 
         # Save model
-        if loss.item() < current_loss:
-            current_loss = loss.item
+        if float(loss.item()) < current_loss:
+            current_loss = float(loss.item())
             save_model(model)
             print(f"Saving model at epoch {epoch+1} with loss of {loss.item()}")
 
