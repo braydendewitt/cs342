@@ -134,6 +134,9 @@ def compute_loss(predictions, annotations, bce_loss, size_loss):
     size_annotations_flat = size_annotations.reshape(-1,2)
 
     # Calculate heatmap loss
+    print("heatmap_preds shape:", heatmap_preds.shape)
+    print("heatmap_annotations shape:", heatmap_annotations.shape)
+
     heatmap_loss_value = bce_loss(heatmap_preds, heatmap_annotations)
 
     # Calculate object centers (for size predictions)
