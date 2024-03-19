@@ -120,7 +120,7 @@ def calculate_pos_weights(data_loader, device, q=0.66):
     return pos_weights
 
 
-def compute_loss(predictions, annotations, bce_loss, size_loss):
+def compute_loss(predictions, annotations, bce_loss, size_loss, device):
  
     # Unpack tuple
     heatmap_annotations, size_annotations = annotations
@@ -136,6 +136,11 @@ def compute_loss(predictions, annotations, bce_loss, size_loss):
     # Calculate heatmap loss
     print("heatmap_preds shape:", heatmap_preds.shape)
     print("heatmap_annotations shape:", heatmap_annotations.shape)
+    print("pos_weight shape:", bce_loss.pos_weight.shape)
+
+    if bce_loss.pos_weight.device != device:
+        print('Changing weight to device')
+        bce_loss.pos_weight = bce_loss.pos_weight.to(device)
 
     heatmap_loss_value = bce_loss(heatmap_preds, heatmap_annotations)
 
@@ -184,8 +189,8 @@ def train(args):
     valid_data = load_detection_data('dense_data/valid', transform = transformation, batch_size = args.batch_size)
 
     # Loss functions
-    initial_pos_weights = torch.ones(3, device = device) # Initial pos_weights
-    heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights)
+    initial_pos_weights = torch.tensor([1.0, 1.0, 1.0], device = device) # Initial pos_weights
+    heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights.to(device))
     size_loss_function = torch.nn.MSELoss()
 
     # Initialize tb logging
@@ -217,7 +222,7 @@ def train(args):
             predictions = model(images)
 
             # Calculate loss
-            loss = compute_loss(predictions, (heatmaps, sizes), heatmap_loss_function, size_loss_function)
+            loss = compute_loss(predictions, (heatmaps, sizes), heatmap_loss_function, size_loss_function, device)
 
             # Backward pass
             loss.backward()
