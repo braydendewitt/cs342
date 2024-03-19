@@ -57,7 +57,7 @@ def train(args):
     ])
 
     # Initialize focal loss
-    focal_loss_function = FocalLoss(alpha = 0.25, gamma = 2.0, reduciton = 'mean').to(device)
+    focal_loss_function = FocalLoss(alpha = 0.25, gamma = 2.0, reduction = 'mean').to(device)
     
     # Initialize size loss
     size_loss_function = torch.nn.MSELoss().to(device)
