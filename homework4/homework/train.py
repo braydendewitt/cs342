@@ -151,9 +151,9 @@ def compute_loss(predictions, annotations, bce_loss, size_loss, device):
     size_annotations_flat = size_annotations.reshape(-1,2)
 
     # Calculate heatmap loss
-    print("heatmap_preds shape:", heatmap_preds.shape)
-    print("heatmap_annotations shape:", heatmap_annotations.shape)
-    print("pos_weight shape:", bce_loss.pos_weight.shape)
+    #print("heatmap_preds shape:", heatmap_preds.shape)
+    #print("heatmap_annotations shape:", heatmap_annotations.shape)
+    #print("pos_weight shape:", bce_loss.pos_weight.shape)
 
     bce_loss.pos_weight = bce_loss.pos_weight.to(device)
     heatmap_loss_value = bce_loss(heatmap_preds, heatmap_annotations)
@@ -188,6 +188,8 @@ def train(args):
 
     # Initialize model
     model = Detector().to(device)
+    if args.continue_training:
+        model.load_state_dict(torch.load(path.join(path.dirname(path.abspath(__file__)), 'det.th')))
 
     # Initialize optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
@@ -254,20 +256,21 @@ def train(args):
         model.eval()
 
         # Calculate AP values
-        ap_values = calculate_ap(model, valid_data, device)
-        average_ap = np.mean(ap_values)
-        if average_ap > best_ap:
-            best_ap = average_ap
-            save_model(model)
-            print(f"Saved model with new best avg AP: {best_ap: .4f}")
-            print(f"Current AP values: {ap_values:.4f}")
+        # ap_values = calculate_ap(model, valid_data, device)
+        # average_ap = np.mean(ap_values)
+        # if average_ap > best_ap:
+            #best_ap = average_ap
+            #save_model(model) 
+           # print(f"Saved model with new best avg AP: {best_ap: .4f}")
+            #print(f"Current AP values: {ap_values:.4f}")
         
         # Update pos_weights
         updated_pos_weights = calculate_pos_weights(train_data, device)
         updated_pos_weights = updated_pos_weights.reshape(1, -1, 1, 1)
         heatmap_loss_function.pos_weight = updated_pos_weights.to(device)
 
-        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, New avg AP: {average_ap: .4f}, Updated Weights: {updated_pos_weights}")
+        #print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, New avg AP: {average_ap: .4f}, Updated Weights: {updated_pos_weights}")
+        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, Updated Weights: {updated_pos_weights}")
 
 
 
@@ -293,5 +296,6 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=10) # Number of epochs
     parser.add_argument('--batch_size', type=int, default=32) # Batch size
     parser.add_argument('--lr', type=float, default=0.001) # Learning rate
+    parser.add_argument('-c', '--continue_training', action='store_true') # Continue training
     args = parser.parse_args()
     train(args)
