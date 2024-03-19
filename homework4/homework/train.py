@@ -99,7 +99,8 @@ def calculate_ap(model, data_loader, device):
         for images, heatmaps, sizes in data_loader:
             images = images.to(device)
             detections = model.detect(images)
-
+            print("detections: ", detections)
+            print("detections shape: ", detections.shape)
             # For each class...
             for class_index in range(3):
                 ground_truth_boxes = sizes[class_index]
@@ -154,10 +155,7 @@ def compute_loss(predictions, annotations, bce_loss, size_loss, device):
     print("heatmap_annotations shape:", heatmap_annotations.shape)
     print("pos_weight shape:", bce_loss.pos_weight.shape)
 
-    if bce_loss.pos_weight.device != device:
-        print('Changing weight to device')
-        bce_loss.pos_weight = bce_loss.pos_weight.to(device)
-
+    bce_loss.pos_weight = bce_loss.pos_weight.to(device)
     heatmap_loss_value = bce_loss(heatmap_preds, heatmap_annotations)
 
     # Calculate object centers (for size predictions)
