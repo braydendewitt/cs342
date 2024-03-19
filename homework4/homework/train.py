@@ -159,7 +159,7 @@ def train(args):
     # Set up device/GPU
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     print(f'Device: {device}')
-    
+
     # Initialize model
     model = Detector().to(device)
 
@@ -177,7 +177,7 @@ def train(args):
     valid_data = load_detection_data('dense_data/valid', transform = transformation, batch_size = args.batch_size)
 
     # Loss functions
-    initial_pos_weights = calculate_pos_weights(train_data).to(device)
+    initial_pos_weights = calculate_pos_weights(train_data, device).to(device)
     heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights)
     size_loss_function = torch.nn.MSELoss()
 
