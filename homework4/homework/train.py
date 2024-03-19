@@ -9,21 +9,34 @@ import torch.optim as optim
 
 ## Helper functions ##
 def calculate_pos_weights(data_loader, device, q=0.5):
-    # Initialize sums for calculating positive weights for each channel
-    pos_sums = torch.zeros(3, device = device)  #3 heatmap channels
-    total_pixels = torch.zeros(3, device = device)
+    # Data structure to store the sum of weights for each channel
+    weights_sum = torch.zeros(3, device=device)
+    # Counter for the number of batches, to calculate the average later
+    batch_count = 0
     
     for imgs, heatmaps, sizes in data_loader:
+        batch_size = imgs.shape[0]
         for c in range(3):  # Iterate over each channel
             channel_labels = heatmaps[:, c, :, :]
-            above_threshold = (channel_labels > q).float()
-            pos_sums[c] += above_threshold.sum()
-            total_pixels[c] += torch.numel(channel_labels)
+            
+            # Calculate the denominator: count of values above the threshold q
+            denominator = (channel_labels > q).sum().float()
+            # Calculate the numerator: total possible values - denominator
+            numerator = (batch_size * channel_labels.shape[1] * channel_labels.shape[2]) - denominator
+            
+            # Calculate the weights for this batch and channel
+            batch_weight = numerator / denominator if denominator != 0 else torch.tensor(0.0, device=device)
+            
+            # Aggregate the weights for averaging later
+            weights_sum[c] += batch_weight
+        
+        batch_count += 1
     
-    # Calculate weights
-    neg_counts = total_pixels - pos_sums
-    pos_weights = neg_counts / pos_sums
-    return pos_weights
+    # Calculate the average weights across all batches
+    avg_weights = weights_sum / batch_count
+    
+    return avg_weights
+
 
 
 def compute_loss(predictions, annotations, bce_loss, size_loss, device):
@@ -120,6 +133,7 @@ def train(args):
 
         # Update pos_weights
         class_pos_weights = calculate_pos_weights(train_data, device)
+        class_pos_weights = class_pos_weights.reshape(1, -1, 1, 1)
         heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = class_pos_weights.to(device), reduction = 'mean')
        
         for images, heatmaps, sizes in train_data:
