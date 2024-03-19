@@ -167,8 +167,8 @@ def train(args):
 
     # Set up data transformation
     transformation = dense_transforms.Compose([
+        dense_transforms.ToTensor(),
         dense_transforms.ToHeatmap()
-        #dense_transforms.ToTensor()
     ])
 
     # Load in data
