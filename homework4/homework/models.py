@@ -191,8 +191,10 @@ class Detector(torch.nn.Module):
 
             # Get detections
             for score, cx, cy in peaks:
-                width = predictions[0, width_channel, cy, cx].item() * image.shape[2]
-                height = predictions[0, height_channel, cy, cx].item() * image.shape[1]
+                width = 0
+                #width = predictions[0, width_channel, cy, cx].item() * image.shape[2]
+                height = 0
+                #height = predictions[0, height_channel, cy, cx].item() * image.shape[1]
                 detections[i].append((score, cx, cy, width, height))
                 #print("Detections i: ", detections[i])
         

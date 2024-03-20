@@ -44,11 +44,11 @@ def compute_loss(predictions, annotations, bce_loss, size_loss, device):
 
     # Get predictions
     heatmap_preds = predictions[:, :3, :, :] # Use first 3 channels for heatmap
-    size_preds = predictions[:, 3:5, :, :] # Use last two channels for size
+    #size_preds = predictions[:, 3:5, :, :] # Use last two channels for size
 
     # Resize and flatten
-    size_preds_flat = size_preds.permute(0,2,3,1).reshape(-1,2)
-    size_annotations_flat = size_annotations.reshape(-1,2)
+    #size_preds_flat = size_preds.permute(0,2,3,1).reshape(-1,2)
+    #size_annotations_flat = size_annotations.reshape(-1,2)
 
     # Calculate heatmap loss
     #print("heatmap_preds shape:", heatmap_preds.shape)
@@ -59,18 +59,18 @@ def compute_loss(predictions, annotations, bce_loss, size_loss, device):
     heatmap_loss_value = bce_loss(heatmap_preds, heatmap_annotations)
 
     # Calculate object centers (for size predictions)
-    object_centers = heatmap_annotations.sum(1, keepdim = True) > 0
-    object_centers_flat = object_centers.view(-1) # Flatten to match with size
+    #object_centers = heatmap_annotations.sum(1, keepdim = True) > 0
+    #object_centers_flat = object_centers.view(-1) # Flatten to match with size
 
     # Filter to only object centers
-    size_preds_filtered = size_preds_flat[object_centers_flat]
-    size_annotations_filtered = size_annotations_flat[object_centers_flat]
+    #size_preds_filtered = size_preds_flat[object_centers_flat]
+    #size_annotations_filtered = size_annotations_flat[object_centers_flat]
 
     # Calculate size loss
-    size_loss_value = size_loss(size_preds_filtered, size_annotations_filtered) if object_centers_flat.any() else 0
+    #size_loss_value = size_loss(size_preds_filtered, size_annotations_filtered) if object_centers_flat.any() else 0
 
     # Combine total loss (heatmap and size)
-    combined_loss = heatmap_loss_value + size_loss_value
+    #combined_loss = heatmap_loss_value + size_loss_value
     return heatmap_loss_value #### ONLY PREDICTING HEATMAP RIGHT NOW #####
 
 
@@ -97,7 +97,7 @@ def train(args):
     # Set up data transformation
     transformation = dense_transforms.Compose([
         dense_transforms.RandomHorizontalFlip(flip_prob = 0.5),
-        dense_transforms.ColorJitter(brightness = (0.7), contrast = (0.8), saturation = (0.7), hue = (0.2)),
+        dense_transforms.ColorJitter(brightness = (0.5), contrast = (0.5), saturation = (0.5), hue = (0.2)),
         dense_transforms.ToTensor(),
         dense_transforms.ToHeatmap()
     ])
@@ -107,15 +107,15 @@ def train(args):
     #valid_data = load_detection_data('dense_data/valid', transform = transformation, batch_size = args.batch_size)
 
     # Loss functions
-    #initial_pos_weights = torch.tensor([1.0, 1.0, 1.0], device = device) # Initial pos_weights
-    #initial_pos_weights = initial_pos_weights.reshape(1, -1, 1, 1) # Reshape for broadcasting
-    #heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights.to(device))
-    weight_for_c0 = 1
-    weight_for_c1 = 0.412/0.018
-    weight_for_c2 = 0.412/0.018
-    pos_weights = torch.tensor([weight_for_c0, weight_for_c1, weight_for_c2], device = device)
-    pos_weights = pos_weights.reshape(1, -1, 1, 1)
-    heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = pos_weights)
+    initial_pos_weights = torch.tensor([1.0, 1.0, 1.0], device = device) # Initial pos_weights
+    initial_pos_weights = initial_pos_weights.reshape(1, -1, 1, 1) # Reshape for broadcasting
+    heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights.to(device))
+    #weight_for_c0 = 1
+    #weight_for_c1 = 0.412/0.018
+    #weight_for_c2 = 0.412/0.018
+    #pos_weights = torch.tensor([weight_for_c0, weight_for_c1, weight_for_c2], device = device)
+    #pos_weights = pos_weights.reshape(1, -1, 1, 1)
+    #heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = pos_weights)
     size_loss_function = torch.nn.MSELoss()
 
     # Initialize tb logging
@@ -165,15 +165,15 @@ def train(args):
         model.eval()
 
         # Calculate AP values
-     
+        
 
             
         # Update pos_weights
-       # updated_pos_weights = calculate_pos_weights(train_data, device)
-        #updated_pos_weights = updated_pos_weights.reshape(1, -1, 1, 1)
-        #heatmap_loss_function.pos_weight = updated_pos_weights.to(device)
-        #print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, Updated Weights: {updated_pos_weights}")
-        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()},  Weights: {pos_weights}")
+        updated_pos_weights = calculate_pos_weights(train_data, device)
+        updated_pos_weights = updated_pos_weights.reshape(1, -1, 1, 1)
+        heatmap_loss_function.pos_weight = updated_pos_weights.to(device)
+        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, Updated Weights: {updated_pos_weights}")
+        #print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()},  Weights: {pos_weights}")
 
         # Save model
         if float(loss.item()) < current_loss:
