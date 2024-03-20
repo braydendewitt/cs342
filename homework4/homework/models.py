@@ -141,7 +141,7 @@ class Detector(torch.nn.Module):
         super(Detector, self).__init__()
 
         # Intialize FCN (3 output classes, 5 channels each) and send to GPU
-        self.fcn = FCN(layers = [16, 32, 64, 128], n_output_channels = 15, kernel_size = 3, use_skip = True)
+        self.fcn = FCN(layers = [16, 32, 64, 128], n_output_channels = 5, kernel_size = 3, use_skip = True)
         self.fcn.to(device)
 
     def forward(self, x):
