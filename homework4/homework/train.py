@@ -51,7 +51,8 @@ def train(args):
     # Initialize loss and loss function (BCE with logits loss)
     current_loss = float('inf')
     global_step = 0
-    pos_weights_tensor = torch.tensor([0.669/0.669, 0.669/0.136, 0.669/0.466])
+    pos_weights_tensor = torch.tensor([0.669/0.669, 0.669/0.136, 0.669/0.466], device = device)
+    pos_weights_tensor = pos_weights_tensor.reshape(1, -1, 1, 1)
     loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = pos_weights_tensor, reduction = 'mean').to(device)
 
     # Training loop
