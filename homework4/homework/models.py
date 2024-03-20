@@ -81,9 +81,26 @@ class CNNClassifier(nn.Module): # Taken from HW 3 master solution
         def forward(self,x):
             # Apply convolutions and skip connection, and activation function
             return F.relu(self.b3(self.c3(F.relu(self.b2(self.c2(F.relu(self.b1(self.c1(x)))))))) + self.skip(x))
+    
+    def __init__(self, layers=[16, 32, 64, 128], n_output_channels=6, kernel_size=3):
+        super().__init__()
+        self.input_mean = torch.Tensor([0.3235, 0.3310, 0.3445])
+        self.input_std = torch.Tensor([0.2533, 0.2224, 0.2483])
+
+        L = []
+        c = 3
+        for l in layers:
+            L.append(self.Block(c, l, kernel_size, 2))
+            c = l
+        self.network = torch.nn.Sequential(*L)
+        self.classifier = torch.nn.Linear(c, n_output_channels)
+
+    def forward(self, x):
+        z = self.network((x - self.input_mean[None, :, None, None].to(x.device)) / self.input_std[None, :, None, None].to(x.device))
+        return self.classifier(z.mean(dim=[2, 3]))
+
 
 class FCN(nn.Module): # Taken from HW 3 master solution
-
     class UpBlock(nn.Module):
         # Up-convolution block for decoder
         def __init__(self, n_input, n_output, kernel_size = 3, stride = 2):
@@ -95,7 +112,7 @@ class FCN(nn.Module): # Taken from HW 3 master solution
             # Apply up-convolution with activation function
             return F.relu(self.c1(x))
 
-    def __init__(self, layers=[16, 32, 64, 128], n_output_channels=5, kernel_size=3, use_skip=True):
+    def __init__(self, layers=[16, 32, 64, 128], n_output_channels=3, kernel_size=3, use_skip=True):
         super().__init__()
         self.input_mean = torch.Tensor([0.2788, 0.2657, 0.2629])
         self.input_std = torch.Tensor([0.2064, 0.1944, 0.2252])
@@ -140,8 +157,8 @@ class Detector(torch.nn.Module):
         """
         super(Detector, self).__init__()
 
-        # Intialize FCN (3 output classes, 5 channels each) and send to GPU
-        self.fcn = FCN(layers = [16, 32, 64, 128], n_output_channels = 15, kernel_size = 3, use_skip = True)
+        # Intialize FCN (3 output classes, 3 channels each) and send to GPU
+        self.fcn = FCN(layers = [16, 32, 64, 128], n_output_channels = 3, kernel_size = 3, use_skip = True)
         self.fcn.to(device)
 
     def forward(self, x):
@@ -171,33 +188,20 @@ class Detector(torch.nn.Module):
         
         # Forward pass to get predictions
         with torch.no_grad():
-            predictions = self.forward(image) # Adds batch dimension
-            predictions = torch.sigmoid(predictions) # Convert to probabilities
+            predictions = self.forward(image[None]) # Adds batch dimension
+            predictions = torch.sigmoid(predictions) # Converts logits to probabilities
 
         # Initialize detections
         detections = [[] for _ in range(3)]
 
         # For each class...
         for i in range(3):
-            # Adjust indices
-            heatmap_channel = i*5
-            width_channel = heatmap_channel + 3
-            height_channel = heatmap_channel + 4
-
-            # Get heatmap and corresponding peaks
-            heatmap = predictions[0, heatmap_channel]
-            #print("Heatmap: ", heatmap)
-            peaks = extract_peak(heatmap, max_det = 30)
-
-            # Get detections
-            for score, cx, cy in peaks:
-                width = 0
-                #width = predictions[0, width_channel, cy, cx].item() * image.shape[2]
-                height = 0
-                #height = predictions[0, height_channel, cy, cx].item() * image.shape[1]
-                detections[i].append((score, cx, cy, width, height))
-                #print("Detections i: ", detections[i])
-        
+            # Get heatmap
+            heatmap = predictions[0, i]
+            # Get peaks
+            peaks = extract_peak(heatmap, max_pool_ks=7, min_score = -5, max_det = 30)
+            # Create list of detections (width and height = 0)
+            detections[i] = [(*peaks, 0, 0) for peak in peaks]
         return detections
 
 def save_model(model):
