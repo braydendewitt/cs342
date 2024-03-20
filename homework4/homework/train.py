@@ -7,153 +7,73 @@ from . import dense_transforms
 import torch.utils.tensorboard as tb
 import torch.optim as optim
 
-
-# Detection Evaluation (for model evaluation and calculating AP scores)
-# Taken from tests.py and edited to fit my training loop
-
-def point_in_box(pred, lbl):
-    px, py = pred[:, None, 0], pred[:, None, 1]
-    x0, y0, x1, y1 = lbl[None, :, 0], lbl[None, :, 1], lbl[None, :, 2], lbl[None, :, 3]
-    return (x0 <= px) & (px < x1) & (y0 <= py) & (py < y1)
-
-
-def point_close(pred, lbl, d=5):
-    px, py = pred[:, None, 0], pred[:, None, 1]
-    x0, y0, x1, y1 = lbl[None, :, 0], lbl[None, :, 1], lbl[None, :, 2], lbl[None, :, 3]
-    return ((x0 + x1 - 1) / 2 - px) ** 2 + ((y0 + y1 - 1) / 2 - py) ** 2 < d ** 2
-
-
-def box_iou(pred, lbl, t=0.5):
-    px, py, pw2, ph2 = pred[:, None, 0], pred[:, None, 1], pred[:, None, 2], pred[:, None, 3]
-    px0, px1, py0, py1 = px - pw2, px + pw2, py - ph2, py + ph2
-    x0, y0, x1, y1 = lbl[None, :, 0], lbl[None, :, 1], lbl[None, :, 2], lbl[None, :, 3]
-    iou = (abs(torch.min(px1, x1) - torch.max(px0, x0)) * abs(torch.min(py1, y1) - torch.max(py0, y0))) / \
-          (abs(torch.max(px1, x1) - torch.min(px0, x0)) * abs(torch.max(py1, y1) - torch.min(py0, y0)))
-    return iou > t
-
-
-class PR:
-    def __init__(self, min_size=20, is_close=point_in_box):
-        self.min_size = min_size
-        self.total_det = 0
-        self.det = []
-        self.is_close = is_close
-
-    def add(self, d, lbl):
-        lbl = lbl if isinstance(lbl, torch.Tensor) else torch.tensor(lbl, dtype=torch.float32)
-        lbl = lbl.view(-1, 4)  # Ensure it's reshaped correctly
-        #lbl = torch.as_tensor(lbl.astype(float), dtype=torch.float32).view(-1, 4)
-        d = torch.as_tensor(d, dtype=torch.float32).view(-1, 5)
-        all_pair_is_close = self.is_close(d[:, 1:], lbl)
-
-        # Get the box size and filter out small objects
-        sz = abs(lbl[:, 2]-lbl[:, 0]) * abs(lbl[:, 3]-lbl[:, 1])
-
-        # If we have detections find all true positives and count of the rest as false positives
-        if len(d):
-            detection_used = torch.zeros(len(d))
-            # For all large objects
-            for i in range(len(lbl)):
-                if sz[i] >= self.min_size:
-                    # Find a true positive
-                    s, j = (d[:, 0] - 1e10 * detection_used - 1e10 * ~all_pair_is_close[:, i]).max(dim=0)
-                    if not detection_used[j] and all_pair_is_close[j, i]:
-                        detection_used[j] = 1
-                        self.det.append((float(s), 1))
-
-            # Mark any detection with a close small ground truth as used (no not count false positives)
-            detection_used += all_pair_is_close[:, sz < self.min_size].any(dim=1)
-
-            # All other detections are false positives
-            for s in d[detection_used == 0, 0]:
-                self.det.append((float(s), 0))
-
-        # Total number of detections, used to count false negatives
-        self.total_det += int(torch.sum(sz >= self.min_size))
-
-
-    @property
-    def curve(self):
-        true_pos, false_pos = 0, 0
-        r = []
-        for t, m in sorted(self.det, reverse=True):
-            if m:
-                true_pos += 1
-            else:
-                false_pos += 1
-            prec = true_pos / (true_pos + false_pos)
-            recall = true_pos / self.total_det
-            r.append((prec, recall))
-        return r
-
-    @property
-    def average_prec(self, n_samples=11):
-        import numpy as np
-        pr = np.array(self.curve, np.float32)
-        return np.mean([np.max(pr[pr[:, 1] >= t, 0], initial=0) for t in np.linspace(0, 1, n_samples)])
-
-class ModelDetectionEval:
-    def __init__(self, model, dataset, device):
-        super().__init__()
-        # Initialize model, device, and stats for the 3 classes
-        self.model = model.eval().to(device)
-        self.pr_box = [PR() for _ in range(3)]
-        self.pr_dist = [PR(is_close = point_close) for _ in range(3)]
-        self.pr_iou = [PR(is_close = box_iou) for _ in range(3)]
-
-        # Run through dataset
-        for img, *gts in dataset:
-            with torch.no_grad():
-                # Get detections
-                print('Getting detections')
-                detections = self.model.detect(img.to(device))
-                print('Got detections')
-                # Add stats
-                for i, gt in enumerate(gts):
-                    print("Making calculations")
-                    self.pr_box[i].add(detections[i], gt)
-                    self.pr_dist[i].add(detections[i], gt)
-                    self.pr_iou[i].add(detections[i], gt)
-                    print("Finished calculations for class")
+## Helper functions ##
+def calculate_pos_weights(data_loader, device, q=0.5):
+    # Data structure to store the sum of weights for each channel
+    weights_sum = torch.zeros(3, device=device)
+    # Counter for the number of batches, to calculate the average later
+    batch_count = 0
     
-    def calculate_ap_scores(self):
-        # Calculate scores and return them as output
-        ap_scores = {
-            "box_ap": [pr.average_prec for pr in self.pr_box],
-            "dist_ap": [pr.average_prec for pr in self.pr_dist],
-            "iou_ap": [pr.average_prec for pr in self.pr_iou]
-        }
-        return ap_scores
-
-def calculate_overall_ap(ap_scores):
-    # Calculate overall AP
-    total_ap = 0
-    count = 0
-    for scores in ap_scores.values():
-        total_ap += sum(scores) # Sum all AP scores
-        count += len(scores) # Get count of number of AP scores
-    return total_ap / count if count > 0 else 0
-
-
-# Focal Loss
-class FocalLoss(torch.nn.Module):
-    def __init__(self, alpha = 0.25, gamma = 2.0, reduction = 'mean'):
-        super(FocalLoss, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.reduction = reduction
+    for imgs, heatmaps, sizes in data_loader:
+        batch_size = imgs.shape[0]
+        for c in range(3):  # Iterate over each channel
+            channel_labels = heatmaps[:, c, :, :]
+            
+            # Calculate the denominator: count of values above the threshold q
+            denominator = (channel_labels > q).sum().float()
+            # Calculate the numerator: total possible values - denominator
+            numerator = (batch_size * channel_labels.shape[1] * channel_labels.shape[2]) - denominator
+            
+            # Calculate the weights for this batch and channel
+            batch_weight = numerator / denominator if denominator != 0 else torch.tensor(0.0, device=device)
+            
+            # Aggregate the weights for averaging later
+            weights_sum[c] += batch_weight
+        
+        batch_count += 1
     
-    def forward(self, inputs, targets):
-        bce_loss = torch.nn.functional.binary_cross_entropy_with_logits(inputs, targets, reduction = 'none')
-        pt = torch.exp(-bce_loss)
-        focal_loss = self.alpha * (1 - pt) ** self.gamma * bce_loss
+    # Calculate the average weights across all batches
+    avg_weights = weights_sum / batch_count
+    
+    return avg_weights
 
-        if self.reduction == 'mean':
-            return torch.mean(focal_loss)
-        elif self.reduction == 'sum':
-            return torch.sum(focal_loss)
-        else:
-            return focal_loss
+
+
+def compute_loss(predictions, annotations, bce_loss, size_loss, device):
+ 
+    # Unpack tuple
+    heatmap_annotations, size_annotations = annotations
+
+    # Get predictions
+    heatmap_preds = predictions[:, :3, :, :] # Use first 3 channels for heatmap
+    size_preds = predictions[:, 3:5, :, :] # Use last two channels for size
+
+    # Resize and flatten
+    size_preds_flat = size_preds.permute(0,2,3,1).reshape(-1,2)
+    size_annotations_flat = size_annotations.reshape(-1,2)
+
+    # Calculate heatmap loss
+    #print("heatmap_preds shape:", heatmap_preds.shape)
+    #print("heatmap_annotations shape:", heatmap_annotations.shape)
+    #print("pos_weight shape:", bce_loss.pos_weight.shape)
+
+    bce_loss.pos_weight = bce_loss.pos_weight.to(device)
+    heatmap_loss_value = bce_loss(heatmap_preds, heatmap_annotations)
+
+    # Calculate object centers (for size predictions)
+    object_centers = heatmap_annotations.sum(1, keepdim = True) > 0
+    object_centers_flat = object_centers.view(-1) # Flatten to match with size
+
+    # Filter to only object centers
+    size_preds_filtered = size_preds_flat[object_centers_flat]
+    size_annotations_filtered = size_annotations_flat[object_centers_flat]
+
+    # Calculate size loss
+    size_loss_value = size_loss(size_preds_filtered, size_annotations_filtered) if object_centers_flat.any() else 0
+
+    # Combine total loss (heatmap and size)
+    combined_loss = heatmap_loss_value + size_loss_value
+    return combined_loss
 
 
 ## Training loop ##
@@ -177,27 +97,23 @@ def train(args):
     optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = args.wd)
 
     # Set up data transformation
-    train_transformation = dense_transforms.Compose([
+    transformation = dense_transforms.Compose([
         dense_transforms.RandomHorizontalFlip(flip_prob = 0.5),
         dense_transforms.ColorJitter(brightness = (0.7), contrast = (0.8), saturation = (0.7), hue = (0.2)),
         dense_transforms.ToTensor(),
         dense_transforms.ToHeatmap()
     ])
 
-    valid_transformation = dense_transforms.Compose([
-        dense_transforms.ToTensor(),
-        dense_transforms.ToHeatmap()
-    ])
-
-    # Initialize focal loss
-    focal_loss_function = FocalLoss(alpha = 0.25, gamma = 2.0, reduction = 'mean').to(device)
-    
-    # Initialize size loss
-    size_loss_function = torch.nn.MSELoss().to(device)
-
     # Load in data
-    train_data = load_detection_data('dense_data/train', transform = train_transformation, batch_size = args.batch_size)
-    #valid_data = load_detection_data('dense_data/valid', transform = valid_transformation, batch_size = args.batch_size)
+    train_data = load_detection_data('dense_data/train', transform = transformation, batch_size = args.batch_size)
+    #valid_data = load_detection_data('dense_data/valid', transform = transformation, batch_size = args.batch_size)
+
+    # Loss functions
+    #initial_pos_weights = torch.tensor([1.0, 1.0, 1.0], device = device) # Initial pos_weights
+    #initial_pos_weights = initial_pos_weights.reshape(1, -1, 1, 1) # Reshape for broadcasting
+    #heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = initial_pos_weights.to(device))
+    heatmap_loss_function = torch.nn.BCEWithLogitsLoss(reduction = 'mean')
+    size_loss_function = torch.nn.MSELoss()
 
     # Initialize tb logging
     train_logger, valid_logger = None, None
@@ -205,17 +121,20 @@ def train(args):
         train_logger = tb.SummaryWriter(path.join(args.log_dir, 'train'), flush_secs=1)
         valid_logger = tb.SummaryWriter(path.join(args.log_dir, 'valid'), flush_secs=1)
 
-    # Initialize loss and AP trackers
+    # Initialize loss
     current_loss = float('inf')
     global_step = 0
-    best_avg_ap = 0.0
-    average_ap = 0.0
 
     # Training loop
     for epoch in range(args.epochs):
         
         # Set model to train
         model.train()
+
+        # Update pos_weights
+        class_pos_weights = calculate_pos_weights(train_data, device)
+        class_pos_weights = class_pos_weights.reshape(1, -1, 1, 1)
+        heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = class_pos_weights.to(device), reduction = 'mean')
        
         for images, heatmaps, sizes in train_data:
 
@@ -231,9 +150,7 @@ def train(args):
             predictions = model(images)
 
             # Calculate loss
-            heatmap_loss = focal_loss_function(predictions[:, :3, :, :], heatmaps)
-            size_loss = size_loss_function(predictions[:, 3:5, :, :].permute(0, 2, 3, 1).reshape(-1, 2), sizes.reshape(-1, 2))
-            loss = heatmap_loss + size_loss
+            loss = compute_loss(predictions, (heatmaps, sizes), heatmap_loss_function, size_loss_function, device)
 
             # Backward pass
             loss.backward()
@@ -249,29 +166,18 @@ def train(args):
         # Validate
         model.eval()
 
-        # Print epoch and loss
-        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}")
+        # Calculate AP values
+     
 
-        # Calculate AP values for every 3rd epoch and print
-        #if (epoch) % 3 == 0:
-            # Call evaluator
-           # model_evaluator = ModelDetectionEval(model, valid_data, device)
-            # Get AP scores, also calculate overall AP (average)
-           # ap_scores = model_evaluator.calculate_ap_scores()
-           # average_ap = calculate_overall_ap(ap_scores)
-            # Output stats
-           # print(f"Epoch {epoch+1} Evaluation: ")
-           # for category, scores in ap_scores.items():
-           #     print(f"{category}: {scores}")
-           # print(f"Epoch {epoch+1} has average AP of {average_ap:.5f}")
+            
+        # Update pos_weights
+       # updated_pos_weights = calculate_pos_weights(train_data, device)
+        #updated_pos_weights = updated_pos_weights.reshape(1, -1, 1, 1)
+        #heatmap_loss_function.pos_weight = updated_pos_weights.to(device)
+        #print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}, Updated Weights: {updated_pos_weights}")
+        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()},  Weights: {class_pos_weights}")
 
-        # Save model (based on overall average AP)
-        #if average_ap > best_avg_ap:
-        #    best_avg_ap = average_ap
-        #    save_model(model)
-        #    print(f"Saving model at epoch {epoch+1} with average AP of {average_ap:.5f}")
-
-        # Save model (based on loss)
+        # Save model
         if float(loss.item()) < current_loss:
             current_loss = float(loss.item())
             save_model(model)
@@ -295,12 +201,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--log_dir', default = None)
+    parser.add_argument('--log_dir')
     # Put custom arguments here
     parser.add_argument('--epochs', type=int, default=10) # Number of epochs
     parser.add_argument('--batch_size', type=int, default=32) # Batch size
     parser.add_argument('--lr', type=float, default=0.001) # Learning rate
-    parser.add_argument('--wd', type=float, default=1e-4) # Learning rate
+    parser.add_argument('--wd', type=float, default=1e-4) # Weight decay
     parser.add_argument('-c', '--continue_training', action='store_true') # Continue training
     args = parser.parse_args()
     train(args)
