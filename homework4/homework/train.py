@@ -53,7 +53,7 @@ def train(args):
     #pos_weights_tensor = torch.tensor([0.669/0.669, 0.669/0.136, 0.669/0.466], device = device)
     #pos_weights_tensor = pos_weights_tensor.reshape(1, -1, 1, 1)
     #loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = pos_weights_tensor, reduction = 'mean').to(device)
-    loss_function = torch.nn.BCEWithLogitsLoss(reduction = 'none').to(device)
+    loss_function = torch.nn.BCEWithLogitsLoss(reduction = 'mean').to(device)
 
     # Training loop
     for epoch in range(args.epochs):
@@ -71,8 +71,8 @@ def train(args):
             # Get predictions (forward pass)
             predictions = model(images)
 
-            # Calculate loss, using mean
-            loss = loss_function(predictions, heatmaps).mean()
+            # Calculate loss
+            loss = loss_function(predictions, heatmaps)
 
             # Backward pass
             loss.backward()
