@@ -186,6 +186,7 @@ class Detector(torch.nn.Module):
 
             # Get heatmap and corresponding peaks
             heatmap = predictions[0, heatmap_channel]
+            print("Heatmap: ", heatmap)
             peaks = extract_peak(heatmap, max_det = 30)
 
             # Get detections
@@ -193,6 +194,7 @@ class Detector(torch.nn.Module):
                 width = predictions[0, width_channel, cy, cx].item() * image.shape[2]
                 height = predictions[0, height_channel, cy, cx].item() * image.shape[1]
                 detections[i].append((score, cx, cy, width, height))
+                print("Detections i: ", detections[i])
         
         return detections
 

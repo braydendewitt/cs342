@@ -6,7 +6,7 @@ from .utils import load_detection_data
 from . import dense_transforms
 import torch.utils.tensorboard as tb
 import torch.optim as optim
-from tqdm import tqdm
+
 
 # Detection Evaluation (for model evaluation and calculating AP scores)
 # Taken from tests.py and edited to fit my training loop
@@ -212,7 +212,7 @@ def train(args):
     average_ap = 0.0
 
     # Training loop
-    for epoch in tqdm(range(args.epochs), desc = "Training epochs:"):
+    for epoch in range(args.epochs):
         
         # Set model to train
         model.train()
