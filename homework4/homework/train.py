@@ -27,11 +27,12 @@ def train(args):
 
     # Initialize optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = args.wd)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = 20, gamma = 0.1)
 
     # Set up data transformation
     transformation = dense_transforms.Compose([
-        dense_transforms.RandomHorizontalFlip(flip_prob = 0.5),
-        dense_transforms.ColorJitter(brightness = (0.5), contrast = (0.5), saturation = (0.5), hue = (0.2)),
+        dense_transforms.RandomHorizontalFlip(),
+        dense_transforms.ColorJitter(brightness = (0.9), contrast = (0.9), saturation = (0.9), hue = (0.2)),
         dense_transforms.ToTensor(),
         dense_transforms.ToHeatmap()
     ])
@@ -50,7 +51,8 @@ def train(args):
     # Initialize loss and loss function (BCE with logits loss)
     current_loss = float('inf')
     global_step = 0
-    loss_function = torch.nn.BCEWithLogitsLoss(reduction = 'mean').to(device)
+    pos_weights_tensor = [0.669/0.669, 0.669/0.136, 0.669/0.466]
+    loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = pos_weights_tensor, reduction = 'mean').to(device)
 
     # Training loop
     for epoch in range(args.epochs):
@@ -97,6 +99,8 @@ def train(args):
             current_loss = float(loss.item())
             save_model(model)
             print(f"Saving model at epoch {epoch+1} with loss of {loss.item()}")
+        
+        scheduler.step()
 
 
 def log(logger, imgs, gt_det, det, global_step):
