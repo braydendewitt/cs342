@@ -201,7 +201,7 @@ class Detector(torch.nn.Module):
             # Get peaks
             peaks = extract_peak(heatmap, max_pool_ks=7, min_score = -5, max_det = 30)
             # Create list of detections (width and height = 0)
-            detections[i] = [(*peaks, 0, 0) for peak in peaks]
+            detections[i] = [(*peak, 0, 0) for peak in peaks]
         return detections
 
 def save_model(model):
