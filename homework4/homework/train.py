@@ -178,7 +178,10 @@ def train(args):
         dense_transforms.ToHeatmap()
     ])
 
-    valid_transformation = dense_transforms.ToHeatmap()
+    valid_transformation = dense_transforms.Compose([
+        dense_transforms.ToTensor(),
+        dense_transforms.ToHeatmap()
+    ])
 
     # Initialize focal loss
     focal_loss_function = FocalLoss(alpha = 0.25, gamma = 2.0, reduction = 'mean').to(device)
