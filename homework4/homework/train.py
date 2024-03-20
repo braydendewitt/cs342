@@ -8,7 +8,7 @@ import torch.utils.tensorboard as tb
 import torch.optim as optim
 
 ## Helper functions ##
-def calculate_pos_weights(data_loader, device, q=0.5):
+def calculate_pos_weights(data_loader, device, q=0.8):
     # Data structure to store the sum of weights for each channel
     weights_sum = torch.zeros(3, device=device)
     # Counter for the number of batches, to calculate the average later
@@ -36,6 +36,17 @@ def calculate_pos_weights(data_loader, device, q=0.5):
     avg_weights = weights_sum / batch_count
     
     return avg_weights
+
+def adjust_weights(weights, adjust_factor=[1, 2, 2]):
+    # Ensure `weights` and `adjust_factor` are tensors
+    # Put more emphasis on certain classes
+    weights = torch.tensor(weights, dtype=torch.float32)
+    adjust_factor = torch.tensor(adjust_factor, dtype=torch.float32)
+    
+    # Adjust weights
+    adjusted_weights = weights * adjust_factor
+    
+    return adjusted_weights
 
 
 
@@ -133,8 +144,9 @@ def train(args):
 
         # Update pos_weights
         class_pos_weights = calculate_pos_weights(train_data, device)
-        class_pos_weights = class_pos_weights.reshape(1, -1, 1, 1)
-        heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = class_pos_weights.to(device), reduction = 'mean')
+        adjusted_pos_weights = adjust_weights(class_pos_weights, [1, 10, 5])
+        adjusted_pos_weights = adjusted_pos_weights.reshape(1, -1, 1, 1)
+        heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = adjusted_pos_weights.to(device), reduction = 'mean')
        
         for images, heatmaps, sizes in train_data:
 
