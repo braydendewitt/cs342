@@ -101,12 +101,11 @@ class ModelDetectionEval:
     def evaluate(self, dataset):
         # Run through dataset
         for img, *gts in dataset:
-            gts_converted = [gt.astype(np.float32) if gt.dtype == np.uint16 else gt for gt in gts]
             with torch.no_grad():
                 # Get detections
                 detections = self.model.detect(img.to(self.device))
                 # Add stats
-                for i, gt in enumerate(gts_converted):
+                for i, gt in enumerate(gts):
                     self.pr_box[i].add(detections[i], gt)
                     self.pr_dist[i].add(detections[i], gt)
                     self.pr_iou[i].add(detections[i], gt)
@@ -172,12 +171,14 @@ def train(args):
     optimizer = optim.Adam(model.parameters(), lr = args.lr)
 
     # Set up data transformation
-    transformation = dense_transforms.Compose([
+    train_transformation = dense_transforms.Compose([
         dense_transforms.RandomHorizontalFlip(flip_prob = 0.5),
         dense_transforms.ColorJitter(brightness = (0.7), contrast = (0.8), saturation = (0.7), hue = (0.2)),
         dense_transforms.ToTensor(),
         dense_transforms.ToHeatmap()
     ])
+
+    valid_transformation = dense_transforms.ToHeatmap()
 
     # Initialize focal loss
     focal_loss_function = FocalLoss(alpha = 0.25, gamma = 2.0, reduction = 'mean').to(device)
@@ -186,8 +187,8 @@ def train(args):
     size_loss_function = torch.nn.MSELoss().to(device)
 
     # Load in data
-    train_data = load_detection_data('dense_data/train', transform = transformation, batch_size = args.batch_size)
-    valid_data = load_detection_data('dense_data/valid', batch_size = args.batch_size)
+    train_data = load_detection_data('dense_data/train', transform = train_transformation, batch_size = args.batch_size)
+    valid_data = load_detection_data('dense_data/valid', transform = valid_transformation, batch_size = args.batch_size)
 
     # Initialize tb logging
     train_logger, valid_logger = None, None
