@@ -174,7 +174,7 @@ def train(args):
         model.load_state_dict(torch.load(path.join(path.dirname(path.abspath(__file__)), 'det.th')))
 
     # Initialize optimizer
-    optimizer = optim.Adam(model.parameters(), lr = args.lr)
+    optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = args.weight_decay)
 
     # Set up data transformation
     train_transformation = dense_transforms.Compose([
@@ -197,7 +197,7 @@ def train(args):
 
     # Load in data
     train_data = load_detection_data('dense_data/train', transform = train_transformation, batch_size = args.batch_size)
-    valid_data = load_detection_data('dense_data/valid', transform = valid_transformation, batch_size = args.batch_size)
+    #valid_data = load_detection_data('dense_data/valid', transform = valid_transformation, batch_size = args.batch_size)
 
     # Initialize tb logging
     train_logger, valid_logger = None, None
@@ -253,29 +253,29 @@ def train(args):
         print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}")
 
         # Calculate AP values for every 3rd epoch and print
-        if (epoch) % 3 == 0:
+        #if (epoch) % 3 == 0:
             # Call evaluator
-            model_evaluator = ModelDetectionEval(model, valid_data, device)
+           # model_evaluator = ModelDetectionEval(model, valid_data, device)
             # Get AP scores, also calculate overall AP (average)
-            ap_scores = model_evaluator.calculate_ap_scores()
-            average_ap = calculate_overall_ap(ap_scores)
+           # ap_scores = model_evaluator.calculate_ap_scores()
+           # average_ap = calculate_overall_ap(ap_scores)
             # Output stats
-            print(f"Epoch {epoch+1} Evaluation: ")
-            for category, scores in ap_scores.items():
-                print(f"{category}: {scores}")
-            print(f"Epoch {epoch+1} has average AP of {average_ap:.5f}")
+           # print(f"Epoch {epoch+1} Evaluation: ")
+           # for category, scores in ap_scores.items():
+           #     print(f"{category}: {scores}")
+           # print(f"Epoch {epoch+1} has average AP of {average_ap:.5f}")
 
         # Save model (based on overall average AP)
-        if average_ap > best_avg_ap:
-            best_avg_ap = average_ap
-            save_model(model)
-            print(f"Saving model at epoch {epoch+1} with average AP of {average_ap:.5f}")
+        #if average_ap > best_avg_ap:
+        #    best_avg_ap = average_ap
+        #    save_model(model)
+        #    print(f"Saving model at epoch {epoch+1} with average AP of {average_ap:.5f}")
 
         # Save model (based on loss)
-        #if float(loss.item()) < current_loss:
-           # current_loss = float(loss.item())
-           # save_model(model)
-           # print(f"Saving model at epoch {epoch+1} with loss of {loss.item()}")
+        if float(loss.item()) < current_loss:
+            current_loss = float(loss.item())
+            save_model(model)
+            print(f"Saving model at epoch {epoch+1} with loss of {loss.item()}")
 
 
 def log(logger, imgs, gt_det, det, global_step):
@@ -300,6 +300,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=10) # Number of epochs
     parser.add_argument('--batch_size', type=int, default=32) # Batch size
     parser.add_argument('--lr', type=float, default=0.001) # Learning rate
+    parser.add_argument('--wd', type=float, default=1e-4) # Learning rate
     parser.add_argument('-c', '--continue_training', action='store_true') # Continue training
     args = parser.parse_args()
     train(args)
