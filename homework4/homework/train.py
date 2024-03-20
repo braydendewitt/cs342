@@ -53,7 +53,7 @@ def train(args):
     #pos_weights_tensor = torch.tensor([0.669/0.669, 0.669/0.136, 0.669/0.466], device = device)
     #pos_weights_tensor = pos_weights_tensor.reshape(1, -1, 1, 1)
     #loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = pos_weights_tensor, reduction = 'mean').to(device)
-    loss_function = torch.nn.BCEWithLogitsLoss(reduction = 'mean').to(device)
+    loss_function = torch.nn.BCEWithLogitsLoss(reduction = 'none').to(device)
 
     # Training loop
     for epoch in range(args.epochs):
@@ -72,16 +72,16 @@ def train(args):
             predictions = model(images)
 
             # Calculate loss
-            loss = loss_function(predictions, heatmaps)
-
-            # Zero gradient
-            optimizer.zero_grad()
+            loss = loss_function(predictions, heatmaps).mean()
 
             # Backward pass
             loss.backward()
 
             # Step in optimizer
             optimizer.step()
+
+            # Zero the gradient
+            optimizer.zero_grad()
 
             # Log training loss in tb
             if train_logger:
