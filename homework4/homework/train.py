@@ -101,11 +101,12 @@ class ModelDetectionEval:
     def evaluate(self, dataset):
         # Run through dataset
         for img, *gts in dataset:
+            gts_converted = [gt.astype(np.float32) if gt.dtype == np.uint16 else gt for gt in gts]
             with torch.no_grad():
                 # Get detections
                 detections = self.model.detect(img.to(self.device))
                 # Add stats
-                for i, gt in enumerate(gts):
+                for i, gt in enumerate(gts_converted):
                     self.pr_box[i].add(detections[i], gt)
                     self.pr_dist[i].add(detections[i], gt)
                     self.pr_iou[i].add(detections[i], gt)
