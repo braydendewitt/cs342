@@ -27,7 +27,6 @@ def train(args):
 
     # Initialize optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = args.wd)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = 20, gamma = 0.1)
 
     # Set up data transformation
     transformation = dense_transforms.Compose([
@@ -101,8 +100,7 @@ def train(args):
             current_loss = float(loss.item())
             save_model(model)
             print(f"Saving model at epoch {epoch+1} with loss of {loss.item()}")
-        
-        scheduler.step()
+
 
 
 def log(logger, imgs, gt_det, det, global_step):
