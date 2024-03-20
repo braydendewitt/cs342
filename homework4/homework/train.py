@@ -31,7 +31,7 @@ def train(args):
     # Set up data transformation
     transformation = dense_transforms.Compose([
         dense_transforms.RandomHorizontalFlip(),
-        dense_transforms.ColorJitter(brightness = (0.7), contrast = (0.8), saturation = (0.7), hue = (0.2)),
+        dense_transforms.ColorJitter(brightness = (0.5), contrast = (0.5), saturation = (0.5), hue = (0.2)),
         dense_transforms.ToTensor(),
         dense_transforms.ToHeatmap()
     ])
