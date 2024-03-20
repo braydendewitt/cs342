@@ -37,15 +37,15 @@ def calculate_pos_weights(data_loader, device, q=0.8):
     
     return avg_weights
 
-def adjust_weights(weights, adjust_factor=[1, 2, 2]):
+def adjust_weights(weights, adjust_factor=[1, 2, 2], device):
     # Ensure `weights` and `adjust_factor` are tensors
     # Put more emphasis on certain classes
-    weights = torch.tensor(weights, dtype=torch.float32)
-    adjust_factor = torch.tensor(adjust_factor, dtype=torch.float32)
+    weights = torch.tensor(weights, dtype=torch.float32).to(device)
+    adjust_factor = torch.tensor(adjust_factor, dtype=torch.float32).to(device)
     
     # Adjust weights
     adjusted_weights = weights * adjust_factor
-    
+    adjusted_weights = adjusted_weights.to(device)
     return adjusted_weights
 
 
@@ -144,7 +144,8 @@ def train(args):
 
         # Update pos_weights
         class_pos_weights = calculate_pos_weights(train_data, device)
-        adjusted_pos_weights = adjust_weights(class_pos_weights, [1, 10, 5])
+        adjusted_pos_weights = adjust_weights(class_pos_weights, [1, 10, 5], device)
+        adjusted_pos_weights = adjusted_pos_weights.to(device)
         adjusted_pos_weights = adjusted_pos_weights.reshape(1, -1, 1, 1)
         heatmap_loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = adjusted_pos_weights.to(device), reduction = 'mean')
        
