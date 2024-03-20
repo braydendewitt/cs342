@@ -92,21 +92,20 @@ class PR:
         return np.mean([np.max(pr[pr[:, 1] >= t, 0], initial=0) for t in np.linspace(0, 1, n_samples)])
 
 class ModelDetectionEval:
-    def __init__(self, model, device):
+    def __init__(self, model, dataset, device):
+        super().__init__()
         # Initialize model, device, and stats for the 3 classes
         self.model = model.eval().to(device)
-        self.device = device
         self.pr_box = [PR() for _ in range(3)]
         self.pr_dist = [PR(is_close = point_close) for _ in range(3)]
         self.pr_iou = [PR(is_close = box_iou) for _ in range(3)]
 
-    def evaluate(self, dataset):
         # Run through dataset
         for img, *gts in dataset:
             with torch.no_grad():
                 # Get detections
                 print('Getting detections')
-                detections = self.model.detect(img.to(self.device))
+                detections = self.model.detect(img.to(device))
                 print('Got detections')
                 # Add stats
                 for i, gt in enumerate(gts):
@@ -255,9 +254,7 @@ def train(args):
         # Calculate AP values for every 3rd epoch and print
         if (epoch) % 3 == 0:
             # Call evaluator
-            model_evaluator = ModelDetectionEval(model, device)
-            # Evaluate on validation data
-            model_evaluator.evaluate(valid_data)
+            model_evaluator = ModelDetectionEval(model, valid_data, device)
             # Get AP scores, also calculate overall AP (average)
             ap_scores = model_evaluator.calculate_ap_scores()
             average_ap = calculate_overall_ap(ap_scores)
