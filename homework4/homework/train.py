@@ -174,7 +174,7 @@ def train(args):
         model.load_state_dict(torch.load(path.join(path.dirname(path.abspath(__file__)), 'det.th')))
 
     # Initialize optimizer
-    optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = args.weight_decay)
+    optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = args.wd)
 
     # Set up data transformation
     train_transformation = dense_transforms.Compose([
