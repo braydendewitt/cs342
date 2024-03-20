@@ -241,8 +241,8 @@ def train(args):
         # Print epoch and loss
         print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss.item()}")
 
-        # Calculate AP values for every 5th epoch and print
-        if (epoch) % 5 == 0:
+        # Calculate AP values for every 3rd epoch and print
+        if (epoch) % 3 == 0:
             # Call evaluator
             model_evaluator = ModelDetectionEval(model, device)
             # Evaluate on validation data
