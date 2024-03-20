@@ -102,15 +102,19 @@ class ModelDetectionEval:
 
     def evaluate(self, dataset):
         # Run through dataset
-        for img, *gts in tqdm(dataset, desc = "Model Detect Eval Dataset"):
+        for img, *gts in dataset:
             with torch.no_grad():
                 # Get detections
+                print('Getting detections')
                 detections = self.model.detect(img.to(self.device))
+                print('Got detections')
                 # Add stats
                 for i, gt in enumerate(gts):
+                    print("Making calculations")
                     self.pr_box[i].add(detections[i], gt)
                     self.pr_dist[i].add(detections[i], gt)
                     self.pr_iou[i].add(detections[i], gt)
+                    print("Finished calculations for class")
     
     def calculate_ap_scores(self):
         # Calculate scores and return them as output
