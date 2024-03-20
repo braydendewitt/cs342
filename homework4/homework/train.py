@@ -40,7 +40,7 @@ def calculate_pos_weights(data_loader, device, q=0.8):
 def adjust_weights(weights, device, adjust_factor=[1, 2, 2]):
     # Ensure `weights` and `adjust_factor` are tensors
     # Put more emphasis on certain classes
-    weights = torch.tensor(weights, dtype=torch.float32).to(device)
+    weights = weights.to(device)
     adjust_factor = torch.tensor(adjust_factor, dtype=torch.float32).to(device)
     
     # Adjust weights
