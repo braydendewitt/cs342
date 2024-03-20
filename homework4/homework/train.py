@@ -39,7 +39,8 @@ class PR:
         self.is_close = is_close
 
     def add(self, d, lbl):
-        lbl = torch.as_tensor(lbl.astype(float), dtype=torch.float32).view(-1, 4)
+        lbl = lbl.to(dtype = torch.float32).view(-1,4)
+        #lbl = torch.as_tensor(lbl.astype(float), dtype=torch.float32).view(-1, 4)
         d = torch.as_tensor(d, dtype=torch.float32).view(-1, 5)
         all_pair_is_close = self.is_close(d[:, 1:], lbl)
 
