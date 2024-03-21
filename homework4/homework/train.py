@@ -73,7 +73,7 @@ def train(args):
             predictions = model(images)
 
             # Calculate loss
-            loss = loss_function(predictions, heatmaps)
+            loss = loss_function(predictions, heatmaps).mean()
 
             # Backward pass
             loss.backward()
