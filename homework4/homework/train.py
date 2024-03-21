@@ -53,7 +53,8 @@ def train(args):
     #pos_weights_tensor = torch.tensor([0.669/0.669, 0.669/0.136, 0.669/0.466], device = device)
     #pos_weights_tensor = pos_weights_tensor.reshape(1, -1, 1, 1)
     #loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = pos_weights_tensor, reduction = 'mean').to(device)
-    loss_function = torch.nn.BCEWithLogitsLoss(reduction = 'mean').to(device)
+    pos_weights = torch.tensor([20, 40, 45]).view(1,3,1,1).cuda()
+    loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = pos_weights, reduction = 'mean').to(device)
 
     # Training loop
     for epoch in range(args.epochs):
