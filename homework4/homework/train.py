@@ -31,7 +31,7 @@ def train(args):
     # Set up data transformation
     transformation = dense_transforms.Compose([
         dense_transforms.RandomHorizontalFlip(),
-        dense_transforms.ColorJitter(brightness = (0.5), contrast = (0.5), saturation = (0.5), hue = (0.2)),
+        dense_transforms.ColorJitter(brightness = (0.8), contrast = (0.8), saturation = (0.8), hue = (0.2)),
         dense_transforms.ToTensor(),
         dense_transforms.ToHeatmap()
     ])
@@ -54,7 +54,7 @@ def train(args):
     #pos_weights_tensor = pos_weights_tensor.reshape(1, -1, 1, 1)
     #loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = pos_weights_tensor, reduction = 'mean').to(device)
     pos_weights = torch.tensor([20, 40, 45]).view(1,3,1,1).cuda()
-    loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = pos_weights, reduction = 'none').to(device)
+    loss_function = torch.nn.BCEWithLogitsLoss(pos_weight = pos_weights, reduction = 'mean').to(device)
 
     # Training loop
     for epoch in range(args.epochs):
@@ -73,7 +73,7 @@ def train(args):
             predictions = model(images)
 
             # Calculate loss
-            loss = loss_function(predictions, heatmaps).mean()
+            loss = loss_function(predictions, heatmaps)
 
             # Backward pass
             loss.backward()
