@@ -10,4 +10,3 @@ dependencies:
 - "torchvision>=0.7.0"
 - "tensorboard>=1.14"
 - future
-- PySuperTuxKart

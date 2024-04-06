@@ -18,6 +18,42 @@ def control(aim_point, current_vel):
     Hint: You may want to use action.drift=True for wide turns (it will turn faster)
     """
 
+    # Initialize constants
+    goal_velocity = 29 # Target velocity
+    steering_scaling_factor = 2.75 # Helps determine the steering direction
+    drift_threshold = 0.77 # Helps determine if the car should drift
+
+    # Calculate steering direction
+    steering_direction = aim_point[0] * steering_scaling_factor # x-coordinate * scaling factor
+    action.steer = max(-1, min(1, steering_direction)) # Makes the car turn in correct direction
+
+    # Determine if needs to accelerate
+    if current_vel < goal_velocity:
+        action.acceleration = 0.75 # Accelerate
+    else:
+        action.acceleration = 0.0 # Do not accelerate
+
+    # Determine if should brake
+    if current_vel > goal_velocity + 3:
+        action.brake = True
+    else:
+        action.brake = False
+    
+    # Determine if drift
+    if abs(steering_direction) > drift_threshold:
+        action.acceleration = 0.01
+        action.brake = True
+        action.drift = True
+        action.brake = True
+    else:
+        action.drift = False
+
+    # Determine if boost/nitro
+    if aim_point[0] > -0.02 and aim_point[0] < 0.02:
+        action.nitro = True
+    else:
+        action.nitro = False
+
     return action
 
 
