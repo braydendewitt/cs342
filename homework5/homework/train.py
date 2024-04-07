@@ -17,7 +17,7 @@ def train(args):
     model = Planner().to(device)
 
     # Initialize optimizer and loss function
-    optimizer = optim.Adam(model.parameters(), lr = args.lr(), weight_decay = args.wd)
+    optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = args.wd)
     loss_function = torch.nn.MSELoss().to(device)
 
     # Set up data transformation
