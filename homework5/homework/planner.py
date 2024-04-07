@@ -85,6 +85,7 @@ class Planner(torch.nn.Module):
         encoded_image = self.encoder(img)
         # Get heatmap
         heatmap = self.decoder(encoded_image)
+        heatmap = heatmap.squeeze(1)
         # Get peak of heatmap (aiming point)
         aim_point = spatial_argmax(heatmap)
         # Output aim point
