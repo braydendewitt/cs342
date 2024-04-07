@@ -12,15 +12,66 @@ def spatial_argmax(logit):
     return torch.stack(((weights.sum(1) * torch.linspace(-1, 1, logit.size(2)).to(logit.device)[None]).sum(1),
                         (weights.sum(2) * torch.linspace(-1, 1, logit.size(1)).to(logit.device)[None]).sum(1)), 1)
 
+# Encoder part of NN
+class EncoderPortion(torch.nn.Module):
+    # init
+    def __init__(self, input_channels = 3):
+        # Call super
+        super().__init__()
+        # First conv. layer
+        self.conv1 = torch.nn.Conv2d(in_channels = input_channels, out_channels = 16, kernel_size = 3, stride = 2, padding = 1)
+        # Second conv. layer
+        self.conv2 = torch.nn.Conv2d(in_channels = 16, out_channels = 32, kernel_size = 3, stride = 2, padding = 1)
+        # Third conv. layer
+        self.conv3 = torch.nn.Conv2d(in_channels = 32, out_channels = 64, kernel_size = 3, stride = 2, padding = 1)
+    
+    # forward
+    def forward(self, x):
+        # First conv. with Relu
+        x = F.relu(self.conv1(x))
+        # Second conv.
+        x = F.relu(self.conv2(x))
+        # Third conv.
+        x = F.relu(self.conv3(x))
+        # Output
+        return x
+    
+# Decoder part of NN
+class DecoderPortion(torch.nn.Module):
+    # init
+    def __init__(self, output_channels = 1):
+        # Call super
+        super().__init__()
+        # Upsample
+        self.conv1 = torch.nn.ConvTranspose2d(in_channels = 64, out_channels = 32, kernel_size = 4, stride = 2, padding = 1)
+        # Upsample again
+        self.conv2 = torch.nn.ConvTranspose2d(in_channels = 32, out_channels = 16, kernel_size = 4, stride = 2, padding = 1)
+        # Reduce to 1 output
+        self.conv3 = torch.nn.ConvTranspose2d(in_channels = 16, out_channels = output_channels, kernel_size = 4, stride = 2, padding = 1)
+    
+    # forward
+    def forward(self, x):
+        # First upsample
+        x = F.relu(self.conv1(x))
+        # Second upsample
+        x = F.relu(self.conv2(x))
+        # Third upsample
+        x = F.relu(self.conv3(x))
+        # Output
+        return x
 
 class Planner(torch.nn.Module):
     def __init__(self):
-        super().__init__()
+        super(Planner, self).__init__()
 
         """
         Your code here
         """
-        raise NotImplementedError('Planner.__init__')
+
+        # Call encoder and decoder
+        self.encoder = EncoderPortion()
+        self.decoder = DecoderPortion()
+        
 
     def forward(self, img):
         """
@@ -29,7 +80,15 @@ class Planner(torch.nn.Module):
         @img: (B,3,96,128)
         return (B,2)
         """
-        raise NotImplementedError("Planner.forward")
+        
+        # Encode image
+        encoded_image = self.encoder(img)
+        # Get heatmap
+        heatmap = self.decoder(encoded_image)
+        # Get peak of heatmap (aiming point)
+        aim_point = spatial_argmax(heatmap)
+        # Output aim point
+        return aim_point
 
 
 def save_model(model):
