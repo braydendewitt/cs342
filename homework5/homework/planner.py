@@ -129,6 +129,8 @@ class Planner(torch.nn.Module):
         return (B,2)
         """
         
+        # Send image to device
+        img = img.to(device)
         # Put image through FCN
         heatmap = self.fcn(img)
         # Squeeze dimension out before spatial argmax
