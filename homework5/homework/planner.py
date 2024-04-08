@@ -1,6 +1,8 @@
 import torch
 import torch.nn.functional as F
+import torch.nn as nn
 
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 def spatial_argmax(logit):
     """
@@ -12,53 +14,99 @@ def spatial_argmax(logit):
     return torch.stack(((weights.sum(1) * torch.linspace(-1, 1, logit.size(2)).to(logit.device)[None]).sum(1),
                         (weights.sum(2) * torch.linspace(-1, 1, logit.size(1)).to(logit.device)[None]).sum(1)), 1)
 
-# Encoder part of NN
-class EncoderPortion(torch.nn.Module):
-    # init
-    def __init__(self, input_channels = 3):
-        # Call super
+class CNNClassifier(nn.Module): # Taken from HW 3 master solution
+    class Block(nn.Module):
+        # Convolutional block with skip connections (taken from HW 3 Master Solution)
+        def __init__(self, n_input, n_output, kernel_size = 3, stride = 2):
+
+            super().__init__()
+
+            # First convolution layer with batch norm.
+            self.c1 = nn.Conv2d(n_input, n_output, kernel_size = kernel_size, padding = kernel_size//2, stride = stride, bias = False)
+            self.b1 = nn.BatchNorm2d(n_output)
+
+            # Second convolution layer with batch norm.
+            self.c2 = nn.Conv2d(n_output, n_output, kernel_size = kernel_size, padding = kernel_size//2, bias = False)
+            self.b2 = nn.BatchNorm2d(n_output)
+
+            # Third convolution layer with batch norm.
+            self.c3 = nn.Conv2d(n_output, n_output, kernel_size = kernel_size, padding = kernel_size//2, bias = False)
+            self.b3 = nn.BatchNorm2d(n_output)
+
+            # Skip connection
+            self.skip = nn.Conv2d(n_input, n_output, kernel_size = 1, stride = stride)
+        
+        def forward(self,x):
+            # Apply convolutions and skip connection, and activation function
+            return F.relu(self.b3(self.c3(F.relu(self.b2(self.c2(F.relu(self.b1(self.c1(x)))))))) + self.skip(x))
+    
+    def __init__(self, layers=[16, 32, 64, 128], n_output_channels=6, kernel_size=3):
         super().__init__()
-        # First conv. layer
-        self.conv1 = torch.nn.Conv2d(in_channels = input_channels, out_channels = 16, kernel_size = 3, stride = 2, padding = 1)
-        # Second conv. layer
-        self.conv2 = torch.nn.Conv2d(in_channels = 16, out_channels = 32, kernel_size = 3, stride = 2, padding = 1)
-        # Third conv. layer
-        self.conv3 = torch.nn.Conv2d(in_channels = 32, out_channels = 64, kernel_size = 3, stride = 2, padding = 1)
-    
-    # forward
+        self.input_mean = torch.Tensor([0.3235, 0.3310, 0.3445])
+        self.input_std = torch.Tensor([0.2533, 0.2224, 0.2483])
+
+        L = []
+        c = 3
+        for l in layers:
+            L.append(self.Block(c, l, kernel_size, 2))
+            c = l
+        self.network = torch.nn.Sequential(*L)
+        self.classifier = torch.nn.Linear(c, n_output_channels)
+
     def forward(self, x):
-        # First conv. with Relu
-        x = F.relu(self.conv1(x))
-        # Second conv.
-        x = F.relu(self.conv2(x))
-        # Third conv.
-        x = F.relu(self.conv3(x))
-        # Output
-        return x
-    
-# Decoder part of NN
-class DecoderPortion(torch.nn.Module):
-    # init
-    def __init__(self, output_channels = 1):
-        # Call super
+        z = self.network((x - self.input_mean[None, :, None, None].to(x.device)) / self.input_std[None, :, None, None].to(x.device))
+        return self.classifier(z.mean(dim=[2, 3]))
+
+
+class FCN(nn.Module): # Taken from HW 3 master solution
+    class UpBlock(nn.Module):
+        # Up-convolution block for decoder
+        def __init__(self, n_input, n_output, kernel_size = 3, stride = 2):
+
+            super().__init__()
+            self.c1 = nn.ConvTranspose2d(n_input, n_output, kernel_size = kernel_size, padding = kernel_size//2, stride = stride, output_padding = 1)
+        
+        def forward(self, x):
+            # Apply up-convolution with activation function
+            return F.relu(self.c1(x))
+
+    def __init__(self, layers=[16, 32, 64, 128], n_output_channels=3, kernel_size=3, use_skip=True):
         super().__init__()
-        # Upsample
-        self.conv1 = torch.nn.ConvTranspose2d(in_channels = 64, out_channels = 32, kernel_size = 4, stride = 2, padding = 1)
-        # Upsample again
-        self.conv2 = torch.nn.ConvTranspose2d(in_channels = 32, out_channels = 16, kernel_size = 4, stride = 2, padding = 1)
-        # Reduce to 1 output
-        self.conv3 = torch.nn.ConvTranspose2d(in_channels = 16, out_channels = output_channels, kernel_size = 4, stride = 2, padding = 1)
-    
-    # forward
+        self.input_mean = torch.Tensor([0.2788, 0.2657, 0.2629])
+        self.input_std = torch.Tensor([0.2064, 0.1944, 0.2252])
+
+        c = 3
+        self.use_skip = use_skip
+        self.n_conv = len(layers)
+        skip_layer_size = [3] + layers[:-1]
+        for i, l in enumerate(layers):
+            self.add_module('conv%d' % i, CNNClassifier.Block(c, l, kernel_size, 2))
+            c = l
+        for i, l in list(enumerate(layers))[::-1]:
+            self.add_module('upconv%d' % i, self.UpBlock(c, l, kernel_size, 2))
+            c = l
+            if self.use_skip:
+                c += skip_layer_size[i]
+        self.classifier = torch.nn.Conv2d(c, n_output_channels, 1)
+
     def forward(self, x):
-        # First upsample
-        x = F.relu(self.conv1(x))
-        # Second upsample
-        x = F.relu(self.conv2(x))
-        # Third upsample
-        x = F.relu(self.conv3(x))
-        # Output
-        return x
+        z = (x - self.input_mean[None, :, None, None].to(x.device)) / self.input_std[None, :, None, None].to(x.device)
+        up_activation = []
+        for i in range(self.n_conv):
+            # Add all the information required for skip connections
+            up_activation.append(z)
+            z = self._modules['conv%d'%i](z)
+
+        for i in reversed(range(self.n_conv)):
+            z = self._modules['upconv%d'%i](z)
+            # Fix the padding
+            z = z[:, :, :up_activation[i].size(2), :up_activation[i].size(3)]
+            # Add the skip connection
+            if self.use_skip:
+                z = torch.cat([z, up_activation[i]], dim=1)
+        return self.classifier(z)
+
+
 
 class Planner(torch.nn.Module):
     def __init__(self):
@@ -68,9 +116,9 @@ class Planner(torch.nn.Module):
         Your code here
         """
 
-        # Call encoder and decoder
-        self.encoder = EncoderPortion()
-        self.decoder = DecoderPortion()
+        # Initialize FCN (1 output) and send to GPU
+        self.fcn = FCN(layers = [16, 32, 64, 128], n_output_channels = 1, kernel_size = 3, use_skip = True)
+        self.fcn.to(device)
         
 
     def forward(self, img):
@@ -81,10 +129,9 @@ class Planner(torch.nn.Module):
         return (B,2)
         """
         
-        # Encode image
-        encoded_image = self.encoder(img)
-        # Get heatmap
-        heatmap = self.decoder(encoded_image)
+        # Put image through FCN
+        heatmap = self.fcn(img)
+        # Squeeze dimension out before spatial argmax
         heatmap = heatmap.squeeze(1)
         # Get peak of heatmap (aiming point)
         aim_point = spatial_argmax(heatmap)

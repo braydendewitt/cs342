@@ -39,26 +39,26 @@ def train(args):
         # Set model to train
         model.train()
 
-        # For each image/label
-        for images, labels in training_data:
+        # For each image/aim point
+        for images, aim_points in training_data:
 
             # Send to device
             images = images.to(device)
-            labels = labels.to(device)
-
-            # Zero gradient
-            optimizer.zero_grad()
+            aim_points = aim_points.to(device)
 
             # Get predictions
             predictions = model(images)
 
             # Calculate loss
-            loss = loss_function(predictions, labels)
+            loss = loss_function(predictions, aim_points)
 
             # Backward pass
             loss.backward()
 
             # Step in optimizer
+            optimizer.step()
+
+            # Zero gradient
             optimizer.zero_grad()
 
         
