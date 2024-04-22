@@ -39,44 +39,8 @@ def extract_features(pstate, soccer_state, opponent_state, team_id):
 
     return features 
 
-def load_data(file_path):
-    # Open pkl file
-    with open(file_path, 'rb') as f:
-        data = pickle.load(f)
-    
-    # Initialize list
-    features_list = []
-    labels_list = []
-    
-    # Get team1 states
-    team1_states = data['team1_state']
-    # Get soccer state
-    soccer_state = data['soccer_state']
-    # Get actions
-    actions = data['actions']
 
-    # For each...
-    for i, pstate in enumerate(team1_states):
-        if i < len(actions): 
-            team_id = 0
-            opponent_states = data['team2_state'] # Get opponent state
-            
-            # Extract features
-            features = extract_features(pstate, soccer_state, opponent_states[i], team_id)
-            features_list.append(features.detach())  # Add to feature list 
-            
-            # Get labels/actions
-            action = actions[i]
-            labels = torch.tensor([action.get('acceleration', 0), action.get('steer', 0), action.get('brake', 0)])
-            labels_list.append(labels)
-
-    # Stack all features and labels to create tensors
-    features_tensor = torch.stack(features_list)
-    labels_tensor = torch.stack(labels_list)
-
-    return features_tensor, labels_tensor
-
-def new_load_data(directory):
+def load_data(directory):
     # Initialize lists to hold all data
     all_features_list = []
     all_labels_list = []
@@ -88,6 +52,10 @@ def new_load_data(directory):
             with open(file_path, 'rb') as f:
                 data = pickle.load(f)
 
+                # Determine which team is agent to imitate
+                # Using jurgen_agent to imitate, so if pickle file starts with j, it means jurgen_agent is team1
+                team_id = 0 if filename.startswith('j') else 1
+
                 # Temp list for current file
                 features_temp_list = []
                 labels_temp_list = []
@@ -96,15 +64,18 @@ def new_load_data(directory):
                 team1_states = data['team1_state']
                 soccer_state = data['soccer_state']
                 actions = data['actions']
-                opponent_states = data['team2_state']
+                team2_states = data['team2_state']
+
+                # Assign correct states based on team_id (allowing for changing the goal/side agent scores on)
+                my_imitation_agent_states = team1_states if team_id == 0 else team2_states
+                opponent_agent_states = team2_states if team_id == 0 else team1_states
 
                 # For each...
-                for i, pstate in enumerate(team1_states):
-                    if i < len(actions) and i < len(opponent_states):
-                        team_id = 0
+                for i, pstate in enumerate(my_imitation_agent_states):
+                    if i < len(actions) and i < len(opponent_agent_states):
 
                         # Get features
-                        features = extract_features(pstate, soccer_state, opponent_states[i], team_id)
+                        features = extract_features(pstate, soccer_state, opponent_agent_states[i], team_id)
                         features_temp_list.append(features)
 
                         # Get labels/actions
@@ -137,7 +108,7 @@ def train(args):
 
 
     ## Load in data
-    features, actions = new_load_data('../pkl_files')
+    features, actions = load_data('../pkl_files')
     dataset = TensorDataset(torch.tensor(features, dtype = torch.float32), torch.tensor(actions, dtype = torch.float32))
     dataloader = DataLoader(dataset, batch_size = args.batch_size, shuffle = True)
 
