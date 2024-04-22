@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from os import path
 import pickle
+import os
 
 ## Taken from jurgen_agent code...
 
@@ -69,11 +70,57 @@ def load_data(file_path):
             labels = torch.tensor([action.get('acceleration', 0), action.get('steer', 0), action.get('brake', 0)])
             labels_list.append(labels)
 
-    # Stack all features and labels to create a unified tensor for each
+    # Stack all features and labels to create tensors
     features_tensor = torch.stack(features_list)
     labels_tensor = torch.stack(labels_list)
 
     return features_tensor, labels_tensor
+
+def new_load_data(directory):
+    # Initialize lists to hold all data
+    all_features_list = []
+    all_labels_list = []
+
+    # Go through all pickle files
+    for filename in os.listdir(directory):
+        if filename.endswith('.pkl'):
+            file_path = os.path.join(directory, filename)
+            with open(file_path, 'rb') as f:
+                data = pickle.load(f)
+
+                # Temp list for current file
+                features_temp_list = []
+                labels_temp_list = []
+
+                # Get game states and actions
+                team1_states = data['team1_state']
+                soccer_state = data['soccer_state']
+                actions = data['actions']
+                opponent_states = data['team2_state']
+
+                # For each...
+                for i, pstate in enumerate(team1_states):
+                    if i < len(actions) and i < len(opponent_states):
+                        team_id = 0
+
+                        # Get features
+                        features = extract_features(pstate, soccer_state, opponent_states[i], team_id)
+                        features_temp_list.append(features)
+
+                        # Get labels/actions
+                        action = actions[i]
+                        labels = torch.tensor([action.get('acceleration', 0), action.get('steer', 0), action.get('brake', 0)])
+                        labels_temp_list.append(labels)
+                
+                # Add on to overall list
+                all_features_list.extend(features_temp_list)
+                all_labels_list.extend(labels_temp_list)
+
+    # Stack all features and labels into tensor
+    all_features_tensor = torch.stack(all_features_list)
+    all_labels_tensor = torch.stack(all_labels_list)
+
+    return all_features_tensor, all_labels_tensor
 
 def train(args):
 
@@ -90,7 +137,7 @@ def train(args):
 
 
     ## Load in data
-    features, actions = load_data('first_test_data_attempt.pkl')
+    features, actions = new_load_data('../pkl_files')
     dataset = TensorDataset(torch.tensor(features, dtype = torch.float32), torch.tensor(actions, dtype = torch.float32))
     dataloader = DataLoader(dataset, batch_size = args.batch_size, shuffle = True)
 

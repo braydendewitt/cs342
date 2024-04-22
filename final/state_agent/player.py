@@ -104,9 +104,9 @@ class Team:
             # Predict actions
             output = self.model(features)
             acceleration, steer, brake = output
-            print(f"Acceleration:", acceleration)
-            print(f"Steer:", steer)
-            print(f"Brake:", brake)
+            #print(f"Acceleration:", acceleration)
+            #print(f"Steer:", steer)
+            #print(f"Brake:", brake)
             # Add to dict
             actions.append(dict(acceleration = acceleration.item(), steer = steer.item(), brake = bool(brake.item() >= 0.5)))
         return actions
