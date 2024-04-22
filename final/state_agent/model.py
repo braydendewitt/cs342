@@ -13,6 +13,9 @@ class ImitationModel(nn.Module):
         self.fc4 = nn.Linear(64, 3) # Output layer for 3 actions (accelerate, steer, brake)
 
     def forward(self, x):
+        print("Input shape:", x.shape)
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
         x = self.norm(x) # Normalization
         x = F.relu(self.fc1(x)) # Apply ReLU
         x = F.relu(self.fc2(x))
