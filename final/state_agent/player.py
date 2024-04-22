@@ -103,10 +103,14 @@ class Team:
             features = extract_features(play_state, soccer_state, opponent_state, self.team)
             # Predict actions
             output = self.model(features)
-            acceleration, steer, brake = output
+            acceleration, steer, brake_value = output
+            #if abs(brake_value) >= 0.2:
+             #   brake = True
+            #else:
+              #  brake = False
             #print(f"Acceleration:", acceleration)
             #print(f"Steer:", steer)
             #print(f"Brake:", brake)
             # Add to dict
-            actions.append(dict(acceleration = acceleration.item(), steer = steer.item(), brake = bool(brake.item() >= 0.5)))
+            actions.append(dict(acceleration = acceleration, steer = steer, brake = brake_value))
         return actions

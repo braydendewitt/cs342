@@ -56,7 +56,7 @@ def load_data(directory):
                 # Determine which team is agent to imitate
                 # Using jurgen_agent to imitate, so if pickle file starts with j, it means jurgen_agent is team1
                 team_id = 0 if filename.startswith('j') else 1
-
+                print(team_id)
                 # Temp list for current file
                 features_temp_list = []
                 labels_temp_list = []
@@ -104,10 +104,10 @@ def train(args):
     model = ImitationModel().to(device)
 
     # Loss function and optimizer
+    #loss_fn = nn.L1Loss().to(device)
     loss_fn = nn.MSELoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = args.wd)
-
-
+                                          
     ## Load in data
     features, actions = load_data('../new_pickle_files')
     dataset = TensorDataset(torch.tensor(features, dtype = torch.float32), torch.tensor(actions, dtype = torch.float32))
