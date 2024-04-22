@@ -51,6 +51,7 @@ def load_data(directory):
             file_path = os.path.join(directory, filename)
             with open(file_path, 'rb') as f:
                 data = pickle.load(f)
+                print(filename)
 
                 # Determine which team is agent to imitate
                 # Using jurgen_agent to imitate, so if pickle file starts with j, it means jurgen_agent is team1
@@ -108,7 +109,7 @@ def train(args):
 
 
     ## Load in data
-    features, actions = load_data('../pkl_files')
+    features, actions = load_data('../new_pickle_files')
     dataset = TensorDataset(torch.tensor(features, dtype = torch.float32), torch.tensor(actions, dtype = torch.float32))
     dataloader = DataLoader(dataset, batch_size = args.batch_size, shuffle = True)
 
