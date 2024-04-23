@@ -138,6 +138,7 @@ def train(args):
     #loss_fn = nn.L1Loss().to(device)
     loss_fn = nn.MSELoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = args.wd)
+    #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = 50, gamma = 0.1)
                                           
     ## Load in data
     features, actions = load_data('../new_pickle_files')
@@ -152,7 +153,7 @@ def train(args):
         model.train()
         total_loss = 0
         for inputs_features, labels_actions in dataloader:
-            
+
             # Send to device
             inputs_features = inputs_features.to(device)
             labels_actions = labels_actions.to(device)
@@ -170,7 +171,8 @@ def train(args):
             # Backward pass and optimizer step
             loss_val.backward()
             optimizer.step()
-        
+        #scheduler.step()
+
         # Evaluate
         model.eval()
         print(f"Epoch {epoch+1}/{args.epochs}, Loss: {total_loss}")

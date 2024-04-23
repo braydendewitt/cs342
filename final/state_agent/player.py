@@ -8,7 +8,7 @@ def limit_period(angle):
     # turn angle into -1 to 1 
     return angle - torch.floor(angle / 2 + 0.5) * 2 
 
-def extract_features(pstate, soccer_state, opponent_state, team_id):
+def extract_features(pstate, soccer_state, team_id):
     # features of ego-vehicle
     kart_front = torch.tensor(pstate['kart']['front'], dtype=torch.float32)[[0, 2]]
     kart_center = torch.tensor(pstate['kart']['location'], dtype=torch.float32)[[0, 2]]
@@ -100,7 +100,7 @@ class Team:
         actions = []
         for player_id, play_state in enumerate(player_state):
             # Get features
-            features = extract_features(play_state, soccer_state, opponent_state, self.team)
+            features = extract_features(play_state, soccer_state, self.team)
             # Predict actions
             output = self.model(features)
             acceleration, steer, brake_value = output
