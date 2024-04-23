@@ -14,7 +14,7 @@ def limit_period(angle):
     # turn angle into -1 to 1 
     return angle - torch.floor(angle / 2 + 0.5) * 2 
 
-def extract_features(pstate, soccer_state, opponent_state, team_id):
+def extract_features(pstate, soccer_state, team_id):
     # features of ego-vehicle
     kart_front = torch.tensor(pstate['kart']['front'], dtype=torch.float32)[[0, 2]]
     kart_center = torch.tensor(pstate['kart']['location'], dtype=torch.float32)[[0, 2]]
@@ -49,48 +49,79 @@ def load_data(directory):
     for filename in os.listdir(directory):
         if filename.endswith('.pkl'):
             file_path = os.path.join(directory, filename)
+            data = []
             with open(file_path, 'rb') as f:
-                data = pickle.load(f)
-                print(filename)
+                while True:
+                    try:
+                        data.append(pickle.load(f))
+                    except EOFError:
+                        break
+            print(filename)
 
-                # Determine which team is agent to imitate
-                # Using jurgen_agent to imitate, so if pickle file starts with j, it means jurgen_agent is team1
-                team_id = 0 if filename.startswith('j') else 1
-                print(team_id)
-                # Temp list for current file
-                features_temp_list = []
-                labels_temp_list = []
+            # Determine which team is agent to imitate
+            # Using jurgen_agent to imitate, so if pickle file starts with j, it means jurgen_agent is team1
+            team_id = 0 if filename.startswith('j') else 1
+            print(team_id)
+
+            # Temp list for current file
+            #features_temp_list = []
+            #labels_temp_list = []
+
+            # For each state in data...
+            for state in data:
 
                 # Get game states and actions
-                team1_states = data['team1_state']
-                soccer_state = data['soccer_state']
-                actions = data['actions']
-                team2_states = data['team2_state']
+                team1_state = state['team1_state']
+                soccer_state = state['soccer_state']
+                team2_state = state['team2_state']
+                actions = state['actions']
 
                 # Assign correct states based on team_id (allowing for changing the goal/side agent scores on)
-                my_imitation_agent_states = team1_states if team_id == 0 else team2_states
-                opponent_agent_states = team2_states if team_id == 0 else team1_states
+                my_imitation_agent_states = team1_state if team_id == 0 else team2_state
+                opponent_agent_states = team2_state if team_id == 0 else team1_state
 
-                # For each...
-                for i, pstate in enumerate(my_imitation_agent_states):
+                # For each of our agent's karts in each state of the data...
+                for i, player_state in enumerate(my_imitation_agent_states):
                     if i < len(actions) and i < len(opponent_agent_states):
 
                         # Get features
-                        features = extract_features(pstate, soccer_state, opponent_agent_states[i], team_id)
-                        features_temp_list.append(features)
+                        #features = extract_features(player_state, soccer_state, team_id)
+                        #all_features_list.append(features)
 
-                        # Get labels/actions
-                        action = actions[i]
-                        labels = torch.tensor([action.get('acceleration', 0), action.get('steer', 0), action.get('brake', 0)])
-                        labels_temp_list.append(labels)
+                        # If our agent is team 1, extract relevant features, actions and labels for karts 0 and 2
+                        if team_id == 0:
+                            if i == 0 or i == 2:
+                                # Get kart's features
+                                features = extract_features(player_state, soccer_state, team_id)
+                                all_features_list.append(features)
+                                # Get kart's actions
+                                action = actions[i]
+                                # Get kart's corresponding labels
+                                labels = torch.tensor([action.get('acceleration'), action.get('steer'), action.get('brake')])
+                                all_labels_list.append(labels)
+
+                        # If our agent is team 2, extract relevant features, actions and labels for karts 1 and 3      
+                        if team_id == 1:
+                            if i == 1 or i == 3:
+                                # Get kart's features
+                                features = extract_features(player_state, soccer_state, team_id)
+                                all_features_list.append(features)
+                                # Get kart's actions
+                                action = actions[i]
+                                # Get kart's labels
+                                labels = torch.tensor([action.get('acceleration'), action.get('steer'), action.get('brake')])
+                                all_labels_list.append(labels)
                 
                 # Add on to overall list
-                all_features_list.extend(features_temp_list)
-                all_labels_list.extend(labels_temp_list)
+                #all_features_list.extend(features_temp_list)
+                #all_labels_list.extend(labels_temp_list)
 
     # Stack all features and labels into tensor
     all_features_tensor = torch.stack(all_features_list)
     all_labels_tensor = torch.stack(all_labels_list)
+
+    print("Features tensor shape:", all_features_tensor.shape)
+    print("Labels tensor shape:", all_labels_tensor.shape)
 
     return all_features_tensor, all_labels_tensor
 
