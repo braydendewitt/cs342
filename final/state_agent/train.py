@@ -198,14 +198,14 @@ def train(args):
         model.eval()
         print(f"Epoch {epoch+1}/{args.epochs}, Total Loss for Epoch: {total_loss_for_epoch}")
 
-        # Save model
+        # Save model if loss has improved
         if float(total_loss_for_epoch) < current_loss:
             current_loss = float(total_loss_for_epoch)
             scripted_model = torch.jit.script(model)
             torch.jit.save(scripted_model, 'state_agent.pt')
             print(f"Saving model at epoch {epoch + 1} with loss of {total_loss_for_epoch}")
 
-        # Save model every 10 epochs if loss has improved
+        # Save model every 10 epochs
         if epoch == 0:
             scripted_model_epoch = torch.jit.script(model)
             torch.jit.save(scripted_model_epoch, 'state_agent_epoch0.pt')
