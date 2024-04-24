@@ -153,7 +153,7 @@ def train(args):
     optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = args.wd)
                                           
     ## Load in data
-    features, actions = load_data('../new_pickle_files')
+    features, actions = load_data('../validated_pickle_files')
     dataset = TensorDataset(torch.tensor(features, dtype = torch.float32), torch.tensor(actions, dtype = torch.float32))
     dataloader = DataLoader(dataset, batch_size = args.batch_size, shuffle = True)
 
@@ -204,6 +204,71 @@ def train(args):
             scripted_model = torch.jit.script(model)
             torch.jit.save(scripted_model, 'state_agent.pt')
             print(f"Saving model at epoch {epoch + 1} with loss of {total_loss_for_epoch}")
+
+        # Save model every 10 epochs if loss has improved
+        if epoch == 0:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch0.pt')
+        if epoch == 10:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch10.pt')        
+        if epoch == 20:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch20.pt')
+        if epoch == 30:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch30.pt')
+        if epoch == 40:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch40.pt')        
+        if epoch == 50:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch50.pt')            
+        if epoch == 60:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch60.pt')
+        if epoch == 70:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch70.pt')        
+        if epoch == 80:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch80.pt')            
+        if epoch == 90:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch90.pt')
+        if epoch == 100:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch100.pt')        
+        if epoch == 110:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch110.pt')
+        if epoch == 120:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch120.pt')
+        if epoch == 130:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch130.pt')        
+        if epoch == 140:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch140.pt')
+        if epoch == 150:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch150.pt')
+        if epoch == 160:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch160.pt')        
+        if epoch == 170:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch170.pt')            
+        if epoch == 180:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch180.pt')
+        if epoch == 190:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch190.pt')        
+        if epoch == 200:
+            scripted_model_epoch = torch.jit.script(model)
+            torch.jit.save(scripted_model_epoch, 'state_agent_epoch200.pt')            
 
 if __name__ == '__main__':
     import argparse
