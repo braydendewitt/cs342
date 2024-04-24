@@ -63,58 +63,71 @@ def load_data(directory):
             team_id = 0 if filename.startswith('j') else 1
             print(team_id)
 
-            # Temp list for current file
-            #features_temp_list = []
-            #labels_temp_list = []
-
             # For each state in data...
             for state in data:
-
+                #print("State", state)
+                #print("\n")
                 # Get game states and actions
                 team1_state = state['team1_state']
+                #print("Team 1 state: ", team1_state)
+                #print("\n")
                 soccer_state = state['soccer_state']
+                #print("Soccer state: ", soccer_state)
+                #print("\n")
                 team2_state = state['team2_state']
+                #print("Team 2 state: ", team2_state)
+                #print("\n")
                 actions = state['actions']
+                #print("Actions: ", actions)
+                #print("\n")
+
 
                 # Assign correct states based on team_id (allowing for changing the goal/side agent scores on)
                 my_imitation_agent_states = team1_state if team_id == 0 else team2_state
+                #print("My agent states: ", my_imitation_agent_states)
+                #print("\n")
                 opponent_agent_states = team2_state if team_id == 0 else team1_state
 
                 # For each of our agent's karts in each state of the data...
                 for i, player_state in enumerate(my_imitation_agent_states):
                     if i < len(actions) and i < len(opponent_agent_states):
-
-                        # Get features
-                        #features = extract_features(player_state, soccer_state, team_id)
-                        #all_features_list.append(features)
-
-                        # If our agent is team 1, extract relevant features, actions and labels for karts 0 and 2
+                        #print("i value: ", i)
+                        #print("\n")
+                        #print("current kart/player state: ", player_state)
+                        #print("\n")
+                        # Get kart's features
+                        features = extract_features(player_state, soccer_state, team_id)
+                        #print("New features extracted: ", features)
+                        #print("\n")
+                        all_features_list.append(features)
+                        #print("Full feature list: ", all_features_list)
+                        #print("\n")
+                        # Get kart's actions
                         if team_id == 0:
-                            if i == 0 or i == 2:
-                                # Get kart's features
-                                features = extract_features(player_state, soccer_state, team_id)
-                                all_features_list.append(features)
-                                # Get kart's actions
-                                action = actions[i]
-                                # Get kart's corresponding labels
-                                labels = torch.tensor([action.get('acceleration'), action.get('steer'), action.get('brake')])
-                                all_labels_list.append(labels)
-
-                        # If our agent is team 2, extract relevant features, actions and labels for karts 1 and 3      
+                            if i == 0:
+                                kart_id = 0
+                            if i == 1:
+                                kart_id = 2
                         if team_id == 1:
-                            if i == 1 or i == 3:
-                                # Get kart's features
-                                features = extract_features(player_state, soccer_state, team_id)
-                                all_features_list.append(features)
-                                # Get kart's actions
-                                action = actions[i]
-                                # Get kart's labels
-                                labels = torch.tensor([action.get('acceleration'), action.get('steer'), action.get('brake')])
-                                all_labels_list.append(labels)
-                
-                # Add on to overall list
-                #all_features_list.extend(features_temp_list)
-                #all_labels_list.extend(labels_temp_list)
+                            if i == 0:
+                                kart_id = 1
+                            if i == 1:
+                                kart_id = 3
+                        action = actions[kart_id]
+                        #print("All actions: ", actions)
+                        #print("\n")
+                        #print("Kart ID: ", kart_id)
+                        #print("\n")
+                        #print("Selected actions from indexing: ", action)
+                        #print("\n")
+                        # Get kart's corresponding labels
+                        labels = torch.tensor([action.get('acceleration'), action.get('steer'), action.get('brake')])
+                        #print("Current labels - should match selected actions: ", labels)
+                        #print("\n")
+                        all_labels_list.append(labels)
+                        #print("Full labels list: ", all_labels_list)
+                        #print("\n")
+    
 
     # Stack all features and labels into tensor
     all_features_tensor = torch.stack(all_features_list)
@@ -138,7 +151,6 @@ def train(args):
     #loss_fn = nn.L1Loss().to(device)
     loss_fn = nn.MSELoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr = args.lr, weight_decay = args.wd)
-    #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = 50, gamma = 0.1)
                                           
     ## Load in data
     features, actions = load_data('../new_pickle_files')
@@ -151,7 +163,7 @@ def train(args):
     # Training loop...
     for epoch in range(args.epochs):
         model.train()
-        total_loss = 0
+        total_loss_for_epoch = 0
         for inputs_features, labels_actions in dataloader:
 
             # Send to device
@@ -161,9 +173,19 @@ def train(args):
             # Get prediction
             output = model(inputs_features)
 
+            # Debugging
+            """   if epoch % 20 == 0:
+                print("Input features: ", inputs_features)
+                print("\n")            
+                print("Predicted output: ", output)
+                print("\n")
+                print("Jurgen labels: ", labels_actions)
+                print("\n")
+            """
+
             # Calculate loss
             loss_val = loss_fn(output, labels_actions)
-            total_loss += loss_val.item()
+            total_loss_for_epoch += loss_val.item()
 
             # Zero gradient
             optimizer.zero_grad()
@@ -171,18 +193,17 @@ def train(args):
             # Backward pass and optimizer step
             loss_val.backward()
             optimizer.step()
-        #scheduler.step()
 
         # Evaluate
         model.eval()
-        print(f"Epoch {epoch+1}/{args.epochs}, Loss: {total_loss}")
+        print(f"Epoch {epoch+1}/{args.epochs}, Total Loss for Epoch: {total_loss_for_epoch}")
 
         # Save model
-        if float(total_loss) < current_loss:
-            current_loss = float(total_loss)
+        if float(total_loss_for_epoch) < current_loss:
+            current_loss = float(total_loss_for_epoch)
             scripted_model = torch.jit.script(model)
             torch.jit.save(scripted_model, 'state_agent.pt')
-            print(f"Saving model at epoch {epoch + 1} with loss of {total_loss}")
+            print(f"Saving model at epoch {epoch + 1} with loss of {total_loss_for_epoch}")
 
 if __name__ == '__main__':
     import argparse
